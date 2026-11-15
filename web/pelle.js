@@ -301,9 +301,52 @@
     if (e.target.closest && e.target.closest('.dropdown-menu')) { chiudiMenu(0 + 0 || 0); return; }
     chiudiMenu(0);
   }, true);
+  // I menu anche da tastiera, come negli editor web: frecce su e giù per scegliere, destra
+  // per aprire un sottomenu (o passare al menu accanto), sinistra per tornare, Invio per fare.
+  function vociDi(pop) { return Array.prototype.slice.call(pop.querySelectorAll(':scope > .hf-voce:not(.spenta)')); }
+  function tastiMenu(e) {
+    var cima = pila[pila.length - 1];
+    if (!cima || cima.pop.querySelector('input')) return false;
+    var voci = vociDi(cima.pop);
+    var i = voci.findIndex(function (v) { return v.classList.contains('attiva'); });
+    var accendi = function (k) {
+      voci.forEach(function (v) { v.classList.remove('attiva'); });
+      if (voci[k]) { voci[k].classList.add('attiva'); voci[k].scrollIntoView({ block: 'nearest' }); }
+    };
+    var barra = document.getElementById('hf-menu');
+    var primo = pila[0] && pila[0].ancora;
+    var nelMenu = primo && barra && primo.parentNode === barra;
+    switch (e.key) {
+      case 'ArrowDown': accendi(i < 0 ? 0 : (i + 1) % voci.length); return true;
+      case 'ArrowUp': accendi(i <= 0 ? voci.length - 1 : i - 1); return true;
+      case 'Enter': case ' ':
+        if (i >= 0) voci[i].click();
+        return true;
+      case 'ArrowRight':
+        if (i >= 0 && voci[i].querySelector('.hf-freccia')) {
+          voci[i].click();
+          setTimeout(function () { var n = pila[pila.length - 1]; if (n && n !== cima) { var w = vociDi(n.pop); w[0] && w[0].classList.add('attiva'); } }, 0);
+        } else if (nelMenu) {
+          var b = primo.nextElementSibling || barra.firstElementChild;
+          b.click();
+          setTimeout(function () { var w = pila[0] && vociDi(pila[0].pop); w && w[0] && w[0].classList.add('attiva'); }, 0);
+        }
+        return true;
+      case 'ArrowLeft':
+        if (pila.length > 1) { chiudiMenu(pila.length - 1); return true; }
+        if (nelMenu) {
+          var a = primo.previousElementSibling || barra.lastElementChild;
+          a.click();
+          setTimeout(function () { var w = pila[0] && vociDi(pila[0].pop); w && w[0] && w[0].classList.add('attiva'); }, 0);
+        }
+        return true;
+    }
+    return false;
+  }
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && pila.length) { chiudiMenu(0); rimettiFuoco(); e.stopPropagation(); }
-    if (e.altKey && (e.key === '/' || e.code === 'Slash')) { e.preventDefault(); cercaNeiMenu(); }
+    if (e.key === 'Escape' && pila.length) { chiudiMenu(0); rimettiFuoco(); e.stopPropagation(); e.preventDefault(); return; }
+    if (e.altKey && (e.key === '/' || e.code === 'Slash')) { e.preventDefault(); cercaNeiMenu(); return; }
+    if (pila.length && tastiMenu(e)) { e.preventDefault(); e.stopPropagation(); }
   }, true);
 
   /* ------------------------------------------------------------------ cerca nei menu */
