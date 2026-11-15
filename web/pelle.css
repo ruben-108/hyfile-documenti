@@ -696,6 +696,10 @@ body.hf-pelle-cell #statusbar_bottom > li.active > span {
 }
 body.hf-pelle-cell #statusbar_bottom > li.active::after, body.hf-pelle-cell #statusbar_bottom > li::before { display: none !important; }
 body.hf-pelle-cell #statusbar_bottom > li > span > .btn-sheet-view { display: none !important; }
+/* ONLYOFFICE ripete il nome in grassetto in un ::after, per tenere la larghezza della
+   scheda uguale quando diventa attiva; con l'altezza nostra quel doppione si vedeva sotto
+   il nome. Resta, a altezza zero: la larghezza la tiene ancora. */
+body.hf-pelle-cell #statusbar_bottom > li > span::after { height: 0 !important; overflow: hidden !important; visibility: hidden !important; }
 
 /* ---------------------------------------------------------------- presentazioni */
 body.hf-pelle-slide #id_panel_thumbnails, body.hf-pelle-slide #id_thumbnails { background: var(--hf-fondo) !important; }
