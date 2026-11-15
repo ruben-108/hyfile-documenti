@@ -5,7 +5,8 @@ documenti, fogli e presentazioni aggiunge:
 
 - in alto, l'icona, il titolo e i menu: File, Modifica, Visualizza, Inserisci, Formato,
   Strumenti, Guida;
-- una sola barra con i comandi di tutti i giorni.
+- una sola barra con i comandi di tutti i giorni;
+- i commenti come schede accanto al foglio, con il pannello «Tutti i commenti».
 
 È il codice sorgente della modifica, pubblicato come chiede la licenza di ONLYOFFICE.
 Nell'editor ci si arriva da **Guida > Informazioni legali**.
@@ -17,6 +18,7 @@ Nell'editor ci si arriva da **Guida > Informazioni legali**.
 | `innesta.sh` | Fa partire il contenitore. A ogni avvio aggiunge ai tre editor una riga che carica la pelle, con una nota che dice che la pagina è modificata. Poi avvia ONLYOFFICE come sempre. |
 | `web/pelle.css` | I colori, la testata, la barra, i menu. |
 | `web/pelle.js` | Costruisce la testata e la barra. Sposta lì i bottoni veri di ONLYOFFICE, così tengono stato e menu. Collega le voci dei menu ai comandi di ONLYOFFICE. |
+| `web/commenti.css`, `web/commenti.js` | I commenti: nei documenti ogni discussione è una scheda accanto al foglio, all'altezza del testo; nei fogli e nelle presentazioni la scheda si apre sulla cella o sull'oggetto. Il pannello «Tutti i commenti» coi filtri e la tendina delle persone con «@». Usano il controllore dei commenti di ONLYOFFICE: i dati e i gesti sono i suoi. |
 | `LICENSE` | La GNU Affero General Public License v3. |
 
 ONLYOFFICE non è ricompilato e i suoi file restano com'erano: cambia solo la riga aggiunta
