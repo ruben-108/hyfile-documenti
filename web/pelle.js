@@ -645,6 +645,13 @@
     altezza(64 + 40 + 8);
     prova(function () { document.getElementById('hf-titolo').allarga(); });
     prova(function () { editor.dopo && editor.dopo(); });
+    // Il pannello a destra chiuso, come negli editor web, finché chi scrive non lo apre da
+    // Visualizza: da lì in poi vale la sua scelta (ONLYOFFICE la ricorda).
+    prova(function () {
+      var chiave = { word: 'de', cell: 'sse', slide: 'pe' }[G.TIPO] + '-hidden-rightmenu';
+      var ch = c('ViewTab').view.chRightMenu;
+      if (G.modifica && ch && Common.localStorage.getItem(chiave) === null && spuntata(ch)) ch.setValue(false);
+    });
 
     // Salvataggio, persone, titolo.
     mettiStato(G.modifica ? 'salvato' : 'sola');
@@ -729,6 +736,19 @@
       Common.NotificationCenter.trigger('layout:changed', 'status');
     });
   }
+  /** «Pannello delle proprietà»: il pannello di ONLYOFFICE a destra (immagine, tabella,
+   *  forma, paragrafo), che la pelle tiene chiuso all'avvio come gli editor web. */
+  function vocePannello() {
+    return {
+      t: 'Pannello delle proprietà',
+      se: function () { return G.modifica && !!prova(function () { return c('ViewTab').view.chRightMenu; }); },
+      on: function () { return !!prova(function () { return spuntata(c('ViewTab').view.chRightMenu); }); },
+      f: function () { giraCasella(c('ViewTab').view.chRightMenu); },
+    };
+  }
+  // Le caselle di ONLYOFFICE dicono 'checked' / 'unchecked' (stringhe, tutte e due «vere»).
+  function spuntata(ch) { var v = ch && ch.getValue(); return v === true || v === 'checked'; }
+  function giraCasella(ch) { ch.setValue(!spuntata(ch)); }
   function voceSi(v) { return function () { return G.modifica && (v === undefined || !!vale(v)); }; }
   function lm() { return c('LeftMenu'); }
   function scarica(formato) {
@@ -860,9 +880,10 @@
             { t: 'Suggerimento (revisioni)', ico: 'revisione', se: function () { return G.modifica && G.opz.canReview; }, on: function () { return G.revisione(); }, f: function () { G.revisione(true); } },
           ] },
           '-',
-          { t: 'Mostra righello', on: function () { return !G.api.asc_IsRulersHidden || !prova(function () { return Common.Utils.InternalSettings.get('de-hidden-rulers'); }, false); }, f: function () { var v = viewTab(); v && v.chRulers && v.chRulers.setValue(!v.chRulers.getValue()); } },
+          { t: 'Mostra righello', se: function () { return !!(viewTab() && viewTab().chRulers); }, on: function () { return spuntata(viewTab().chRulers); }, f: function () { giraCasella(viewTab().chRulers); } },
           { t: 'Mostra struttura del documento', ico: 'elenco', f: function () { pannello('navigation'); } },
           { t: 'Mostra caratteri non stampabili', k: 'Ctrl+Shift+8', ico: 'paragrafo', f: function () { premi(tb().btnShowHidenChars); } },
+          vocePannello(),
           '-',
           { t: 'Zoom', sub: zoomVoci },
         ] },
@@ -1051,8 +1072,8 @@
     function sb() { return prova(function () { return c('Statusbar').statusbar; }); }
     function spunta(nome) {
       return {
-        on: function () { var v = vt(); return !!(v && v[nome] && v[nome].getValue()); },
-        f: function () { var v = vt(); v && v[nome] && v[nome].setValue(!v[nome].getValue()); },
+        on: function () { var v = vt(); return !!(v && v[nome] && spuntata(v[nome])); },
+        f: function () { var v = vt(); v && v[nome] && giraCasella(v[nome]); },
       };
     }
     function immagine(da) { return function () { scegli(tb().btnInsertImage, da); }; }
@@ -1093,6 +1114,7 @@
           x({ t: 'Griglia' }, spunta('chGridlines')),
           x({ t: 'Intestazioni di righe e colonne' }, spunta('chHeadings')),
           x({ t: 'Mostra gli zeri' }, spunta('chZeros')),
+          vocePannello(),
           '-',
           { t: 'Blocca', oo: function () { return vt() && vt().btnFreezePanes; } },
           '-',
@@ -1254,12 +1276,13 @@
             { t: 'Con la vista del relatore', f: avvia(2) },
           ] },
           '-',
-          { t: 'Note del relatore', on: function () { var v = vt(); return !!(v && v.chNotes && v.chNotes.getValue()); },
+          { t: 'Note del relatore', on: function () { var v = vt(); return !!(v && v.chNotes && spuntata(v.chNotes)); },
             se: function () { var v = vt(); return !!(v && v.chNotes); },
-            f: function () { var v = vt(); v.chNotes.setValue(!v.chNotes.getValue()); } },
-          { t: 'Righelli', on: function () { var v = vt(); return !!(v && v.chRulers && v.chRulers.getValue()); },
+            f: function () { giraCasella(vt().chNotes); } },
+          { t: 'Righelli', on: function () { var v = vt(); return !!(v && v.chRulers && spuntata(v.chRulers)); },
             se: function () { var v = vt(); return !!(v && v.chRulers); },
-            f: function () { var v = vt(); v.chRulers.setValue(!v.chRulers.getValue()); } },
+            f: function () { giraCasella(vt().chRulers); } },
+          vocePannello(),
           '-',
           { t: 'Zoom', sub: zoomVoci },
         ] },
@@ -1391,7 +1414,7 @@
   window.pelleHyfile = {
     verifica: function () {
       var fuori = { ok: [], vuote: [], saltate: [] };
-      var SALTA = /^(Stampa|Nuovo|Condividi|Rinomina|Apri la cartella|Cronologia|Dettagli|Guida|Scorciatoie|Cerca nei menu|Informazioni|Preferenze|Lingua|Conteggio|Elimina diapositiva|Dall|Da questa|Con la vista|Adatta|\d+%|Documento|Microsoft|Foglio Open|Presentazione Open|Valori|Formato RTF|Testo normale \(|Pagina web|Libro|Immagine PNG|Immagine JPEG|Mostra|Note del|Righelli|Barra della|Griglia|Intestazioni di|Controllo ortografico|Rileva|Modifica$|Suggerimento|Altri formati)/;
+      var SALTA = /^(Stampa|Nuovo|Condividi|Rinomina|Apri la cartella|Cronologia|Dettagli|Guida|Scorciatoie|Cerca nei menu|Informazioni|Preferenze|Lingua|Conteggio|Elimina diapositiva|Dall|Da questa|Con la vista|Adatta|\d+%|Documento|Microsoft|Foglio Open|Presentazione Open|Valori|Formato RTF|Testo normale \(|Pagina web|Libro|Immagine PNG|Immagine JPEG|Mostra|Note del|Righelli|Barra della|Griglia|Intestazioni di|Controllo ortografico|Rileva|Modifica$|Suggerimento|Altri formati|Pannello)/;
       (function giro(voci, via) {
         visibili(voci).forEach(function (v) {
           if (v === '-') return;
