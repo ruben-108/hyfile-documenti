@@ -256,6 +256,7 @@
     verticale: 'M8 19h3v4h2v-4h3l-4-4-4 4zm8-14h-3V1h-2v4H8l4 4 4-4zM4 11v2h16v-2H4z',
     indietro: 'M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z',
     su: 'M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z',
+    giu2: 'M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z',
   };
   function svg(nome, classe) {
     var d = ICONE[nome] || '';
@@ -503,6 +504,10 @@
   }
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && pila.length) { chiudiMenu(0); rimettiFuoco(); e.stopPropagation(); e.preventDefault(); return; }
+    if (e.key === 'Escape') {
+      var d = document.querySelector('#hf-conteggio, #hf-legale');
+      if (d) { d.remove(); rimettiFuoco(); e.stopPropagation(); e.preventDefault(); return; }
+    }
     if (e.altKey && (e.key === '/' || e.code === 'Slash')) { e.preventDefault(); cercaNeiMenu(); return; }
     if (pila.length && tastiMenu(e)) { e.preventDefault(); e.stopPropagation(); }
   }, true);
@@ -739,7 +744,7 @@
       'data-hf-tip': p.nome + (p.guarda ? ' sta guardando' : '') });
     a.textContent = iniziali(p.nome);
     a.style.setProperty('--hf-anello', p.colore);
-    a.style.background = coloreDi(p.id);
+    a.style.background = p.colore;
     a.addEventListener('mousedown', function (e) { e.preventDefault(); });
     a.addEventListener('click', function () { vaiDa(p); });
     return a;
@@ -930,8 +935,17 @@
     var gAltro = gruppo([altro], 'altro'); gAltro.classList.add('hf-fisso');
     barra.appendChild(gAltro);
     if (editor.coda) { var cd = editor.coda(); if (cd) { cd.classList.add('hf-fisso'); barra.appendChild(cd); } }
+    // Il «⌃» in fondo: nasconde titolo e menu (resta la barra), come negli editor web.
+    // La scelta resta in questo browser.
+    var compatta = bottonePelle('su', 'Nascondi i menu (Ctrl+Maiusc+F)', function () { compattaTestata(!document.body.classList.contains('hf-compatta')); });
+    compatta.id = 'hf-compatta';
+    var gComp = gruppo([el('div', { class: 'hf-sep hf-sep-fissa' }), compatta], 'compatta');
+    gComp.classList.add('hf-fisso');
+    if (!editor.coda) gComp.style.marginLeft = 'auto';
+    barra.appendChild(gComp);
 
     altezza(ALTO);
+    prova(function () { if (localStorage.getItem('hf-pelle-compatta') === '1') compattaTestata(true); });
     prova(function () { document.getElementById('hf-titolo').allarga(); });
     prova(function () { editor.dopo && editor.dopo(); });
     prova(chiudiPannelloDestro);
@@ -990,6 +1004,27 @@
     vecchio.parentNode.replaceChild(nuovo, vecchio);
   }
 
+  /** Titolo e menu nascosti (il «⌃» in fondo alla barra) o di nuovo in vista. */
+  function compattaTestata(si) {
+    document.body.classList.toggle('hf-compatta', !!si);
+    var b = document.getElementById('hf-compatta');
+    if (b) {
+      b.innerHTML = svg(si ? 'giu2' : 'su');
+      var t = si ? 'Mostra i menu (Ctrl+Maiusc+F)' : 'Nascondi i menu (Ctrl+Maiusc+F)';
+      b.title = t; b.setAttribute('aria-label', t);
+    }
+    try { localStorage.setItem('hf-pelle-compatta', si ? '1' : '0'); } catch (e) { /* senza: vale per questa volta */ }
+    altezza(si ? 40 + 16 : ALTO);
+    mandaPosto();
+    setTimeout(adatta, 30);
+  }
+  document.addEventListener('keydown', function (e) {
+    if (FASE.pronta && !FASE.ripiego && (e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'F' || e.key === 'f')) {
+      e.preventDefault(); e.stopPropagation();
+      compattaTestata(!document.body.classList.contains('hf-compatta'));
+    }
+  }, true);
+
   /** Tolta la pelle a metà (ripiego): ONLYOFFICE torna com'era. */
   function smonta() {
     ['hf-testa', 'hf-barra'].forEach(function (id) { var e = document.getElementById(id); e && e.remove(); });
@@ -1032,9 +1067,11 @@
       var lm = G.APP.getController('LeftMenu').leftMenu;
       var b = { comments: lm.btnComments, navigation: lm.btnNavigation, search: lm.btnSearchBar, chat: lm.btnChat, thumbnails: lm.btnThumbnails, about: lm.btnAbout }[nome];
       if (!b) return;
-      if (b.pressed) { lm.close ? lm.close() : (b.toggle(false), lm.onBtnMenuClick(b)); return; }
-      if (nome === 'about') { b.toggle(true); lm.onBtnMenuClick(b); return; }
-      lm.showMenu(nome);
+      // Non showMenu: chiede che il bottone sia visibile, e la colonna dei bottoni la pelle
+      // la nasconde (con showMenu i commenti non si aprivano). Si fa quello che fa il clic.
+      b.toggle(!b.pressed);
+      lm.onBtnMenuClick(b);
+      if (b.pressed && nome === 'search' && lm.panelSearch && lm.panelSearch.focus) lm.panelSearch.focus();
     });
   }
 
@@ -1098,9 +1135,31 @@
     riga.appendChild(titolo);
     riga.appendChild(el('div', { class: 'hf-spinta' }));
     riga.appendChild(ripristina);
+    // I commenti restano a portata: dalla cronologia si esce, e si aprono al giro dopo.
+    if (document.getElementById('hf-bottone-commenti')) {
+      var bc = el('button', { type: 'button', class: 'hf-tondo', id: 'hf-storia-commenti', 'aria-label': 'Commenti', 'data-hf-tip': 'Commenti' }, svg('commenti'));
+      bc.addEventListener('click', apriCommenti);
+      riga.appendChild(bc);
+    }
     testa.appendChild(riga);
     // Niente barra dei comandi: in una versione vecchia non si scrive.
     altezza(64 + 8);
+    // Il pannello a destra: nel layout di ONLYOFFICE la cronologia è il secondo pezzo da
+    // sinistra (dopo i pannelli dei commenti); spostata in fondo, il layout la mette a
+    // destra del documento. Non si rimette: uscendo l'editor si ricarica.
+    prova(function () {
+      var vp = G.APP.getController('Viewport');
+      var hl = (vp.viewport || vp.getView('Viewport')).hlayout;
+      var i = -1;
+      hl.panels.forEach(function (p, k) { if (p.alias === 'history') i = k; });
+      if (i < 0) return;
+      var pezzi = hl.panels.splice(i, 2);
+      if (pezzi[1] && pezzi[1].isresizer) { pezzi[1].el && pezzi[1].el.hide && pezzi[1].el.hide(); hl.panels.push(pezzi[1]); }
+      else if (pezzi[1]) hl.panels.splice(i, 0, pezzi[1]);
+      hl.panels.push(pezzi[0]);
+      hl.doLayout();
+      Common.NotificationCenter.trigger('layout:changed', 'history');
+    });
     var lista = document.getElementById('history-list');
     var aggiorna = function () {
       var scelta = lista && lista.querySelector('.selected');
@@ -1110,6 +1169,46 @@
     };
     aggiorna();
     if (lista && window.MutationObserver) new MutationObserver(aggiorna).observe(lista, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
+  }
+
+  /** «Conteggio parole» come negli editor web: pagine, parole, caratteri. I numeri li conta
+   *  l'editor (startGetDocInfo), il dialogo è della pelle. */
+  var conteggio = null;
+  function conteggioParole() {
+    var vecchio = document.getElementById('hf-conteggio');
+    if (vecchio) vecchio.remove();
+    var f = el('div', { id: 'hf-conteggio', role: 'dialog', 'aria-modal': 'true' });
+    f.innerHTML = '<div><h2>Conteggio parole</h2><table><tbody>' +
+      '<tr><td>Pagine</td><td data-k="PageCount">…</td></tr>' +
+      '<tr><td>Parole</td><td data-k="WordsCount">…</td></tr>' +
+      '<tr><td>Caratteri</td><td data-k="SymbolsWSCount">…</td></tr>' +
+      '<tr><td>Caratteri esclusi gli spazi</td><td data-k="SymbolsCount">…</td></tr>' +
+      '</tbody></table><div class="hf-fine"><button type="button" class="hf-pieno">OK</button></div></div>';
+    var chiudi = function () { f.remove(); rimettiFuoco(); };
+    f.addEventListener('click', function (e) { if (e.target === f || e.target.tagName === 'BUTTON') chiudi(); });
+    f.addEventListener('keydown', function (e) { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); chiudi(); } });
+    document.body.appendChild(f);
+    f.querySelector('button').focus();
+    var metti = function (o) {
+      Array.prototype.forEach.call(f.querySelectorAll('[data-k]'), function (td) {
+        var v = o && o[td.getAttribute('data-k')];
+        if (typeof v === 'number') td.textContent = v.toLocaleString('it-IT');
+      });
+    };
+    if (!conteggio) {
+      conteggio = { somma: {} };
+      G.api.asc_registerCallback('asc_onGetDocInfoStart', function () { conteggio.somma = {}; });
+      G.api.asc_registerCallback('asc_onDocInfo', function (o) {
+        // Arriva a pezzi, con i totali fin lì: l'ultimo è quello buono.
+        ['PageCount', 'WordsCount', 'SymbolsCount', 'SymbolsWSCount'].forEach(function (k) {
+          var v = prova(function () { return o['get_' + k](); }, -1);
+          if (typeof v === 'number' && v > -1) conteggio.somma[k] = v;
+        });
+        if (document.getElementById('hf-conteggio')) metti(conteggio.somma);
+      });
+      G.api.asc_registerCallback('asc_onGetDocInfoEnd', function () { var d = document.getElementById('hf-conteggio'); if (d) metti(conteggio.somma); });
+    }
+    prova(function () { G.api.startGetDocInfo(); });
   }
 
   function legale() {
@@ -1371,7 +1470,8 @@
         { t: 'Strumenti', voci: [
           { t: 'Controllo ortografico', on: function () { return prova(function () { return Common.Utils.InternalSettings.get('de-settings-spellcheck'); }, true) !== false; },
             f: function () { prova(function () { var s = Common.Utils.InternalSettings.get('de-settings-spellcheck') !== false; Common.Utils.InternalSettings.set('de-settings-spellcheck', !s); Common.localStorage.setBool('de-settings-spellcheck', !s); G.api.asc_setSpellCheck(!s); }); } },
-          { t: 'Conteggio parole', f: function () { prova(function () { c('Statusbar').statusbar.btnWordCount.trigger('click'); }) ; prova(function () { var b = c('Statusbar').statusbar.btnWordCount; premi(b); }); } },
+          // Il conteggio è il menu del bottone «Conteggio parole» della barra di stato (nascosta).
+          { t: 'Conteggio parole', f: conteggioParole },
           '-',
           { t: 'Revisioni', se: function () { return G.modifica && G.opz.canReview; }, sub: [
             { t: 'Rileva le modifiche', on: function () { return G.revisione(); }, f: function () { G.revisione(!G.revisione()); } },
@@ -1820,6 +1920,13 @@
    */
   window.pelleHyfile = {
     tempi: TEMPI,
+    // Per le prove: le facce con persone finte ([{ id, nome, colore }]), senza un secondo utente.
+    provaGente: function (finte) {
+      mettiGente((finte || []).map(function (p) {
+        return { asc_getIdOriginal: function () { return p.id; }, asc_getUserName: function () { return p.nome; },
+          asc_getColor: function () { return p.colore; }, asc_getId: function () { return p.id + '-c'; }, asc_getView: function () { return !!p.guarda; } };
+      }));
+    },
     get documento() { return FASE.documento; },
     get ripiego() { return FASE.ripiego; },
     verifica: function () {

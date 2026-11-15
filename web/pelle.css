@@ -45,6 +45,13 @@ body, body.hf-pelle {
   --canvas-ruler-border: var(--hf-fondo) !important;
   --canvas-ruler-margins-background: #e3e3e3 !important;
   --canvas-ruler-mark: #444746 !important;
+  /* I triangolini del righello blu, come negli editor web. */
+  --canvas-ruler-handle-border: #4285f4 !important;
+  --canvas-ruler-handle-fill: #4285f4 !important;
+  --canvas-ruler-handle-border-hover: #1a73e8 !important;
+  --canvas-ruler-handle-fill-hover: #1a73e8 !important;
+  --canvas-ruler-margins-background: #e9eef6 !important;
+  --canvas-ruler-background: #fff !important;
   --canvas-scroll-thumb: #dadce0 !important;
   --canvas-scroll-thumb-hover: #bdc1c6 !important;
   --canvas-scroll-thumb-border: #dadce0 !important;
@@ -85,7 +92,9 @@ body.hf-pelle #toolbar { background: var(--hf-fondo) !important; overflow: visib
    ONLYOFFICE ci metteva 8 px suoi, e 40 di colonna a sinistra per i suoi bottoni, che la
    pelle non usa (i pannelli si aprono dai menu). */
 body.hf-pelle #viewport-vbox-layout > .layout-item.middle { padding-top: 0 !important; }
-body.hf-pelle #left-menu { width: auto !important; min-width: 0 !important; }
+/* La colonna è larga 40 (ONLYOFFICE lo scrive nello stile) solo quando nessun pannello è
+   aperto: allora sparisce; aperto un pannello (commenti, struttura) vale la sua larghezza. */
+body.hf-pelle #left-menu[style*="width: 40px"] { width: 0 !important; min-width: 0 !important; }
 body.hf-pelle #left-menu .left-panel { padding-left: 0 !important; padding-right: 0 !important; }
 #hf-testa {
   display: flex; align-items: flex-start; position: relative;
@@ -464,3 +473,219 @@ body.hf-pelle .asc-loadmask-body .asc-loadmask-image {
 }
 @keyframes hf-gira { to { transform: rotate(360deg); } }
 body:not(.hf-documento) .asc-loadmask-body { display: none !important; }
+
+/* ---------------------------------------------------------------- la barra nascosta (⌃) */
+body.hf-compatta #hf-testa { display: none !important; }
+body.hf-compatta #hf-barra { margin-top: 8px; }
+#hf-barra .hf-sep-fissa { width: 1px; height: 20px; background: #c7c7c7; margin: 0 6px 0 8px; flex: none; }
+
+/* ---------------------------------------------------------------- la cronologia */
+/* Come negli editor web: in alto la freccia, la data della versione scelta e «Ripristina
+   questa versione»; a destra il pannello con le versioni (data in grassetto, sotto chi
+   l'ha fatta col pallino del suo colore, la scelta in azzurro). Niente barra dei comandi. */
+body.hf-storia #hf-barra { display: none !important; }
+#hf-testa-storia {
+  position: absolute; left: 0; top: 0; bottom: 0; right: calc(var(--hf-posto, 124px) + 8px);
+  display: flex; align-items: center; gap: 8px; padding: 0 0 0 8px; background: var(--hf-fondo); z-index: 2;
+}
+#hf-testa-storia .hf-storia-titolo {
+  font: 400 22px/28px var(--hf-font); color: var(--hf-testo); white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; min-width: 0; margin-left: 4px;
+}
+#hf-testa-storia .hf-spinta { flex: 1 1 auto; }
+#hf-testa-storia .hf-pieno { margin-right: 4px; }
+body.hf-storia #left-panel-history {
+  width: 300px !important; background: #fff !important; border-left: 1px solid #e1e3e1 !important;
+  box-shadow: none !important; border-radius: 0 !important; margin: 0 !important; padding: 0 !important;
+  font-family: var(--hf-font) !important;
+}
+body.hf-storia .layout-resizer { display: none !important; }
+body.hf-storia #history-box { background: #fff !important; }
+body.hf-storia #history-header {
+  height: auto !important; padding: 16px 12px 12px 20px !important; border: 0 !important;
+  display: flex; align-items: center; background: #fff !important;
+}
+body.hf-storia #history-header label {
+  font: 400 18px/24px var(--hf-font) !important; color: var(--hf-testo) !important; flex: 1 1 auto; order: 0;
+}
+body.hf-storia #history-btn-back { display: none !important; }
+body.hf-storia #history-btn-menu { order: 1; }
+body.hf-storia #history-list .tree-item {
+  padding: 10px 16px 10px 20px !important; border: 0 !important; border-radius: 0 !important;
+  background: transparent !important; cursor: pointer; min-height: 0 !important;
+}
+body.hf-storia #history-list .tree-item:hover { background: rgba(68, 71, 70, .08) !important; }
+body.hf-storia #history-list .selected .tree-item, body.hf-storia #history-list .tree-item.selected,
+body.hf-storia #history-list .item.selected .tree-item { background: var(--hf-premuto) !important; }
+body.hf-storia #history-list .item, body.hf-storia #history-list .item.selected { background: transparent !important; border: 0 !important; box-shadow: none !important; }
+body.hf-storia #history-list .item-internal { position: relative; display: block !important; padding: 0 !important; }
+body.hf-storia #history-list .color {
+  position: absolute !important; left: 0 !important; bottom: 5px !important; top: auto !important;
+  width: 10px !important; height: 10px !important; min-width: 0 !important; border-radius: 50% !important;
+  font-size: 0 !important; line-height: 0 !important; margin: 0 !important; padding: 0 !important; border: 0 !important;
+  background-image: none !important;
+}
+body.hf-storia #history-list .item-content { margin: 0 !important; padding: 0 !important; }
+body.hf-storia #history-list .item-title { display: flex; align-items: baseline; gap: 8px; }
+body.hf-storia #history-list .user-date { font: 500 14px/20px var(--hf-font) !important; color: var(--hf-testo) !important; }
+body.hf-storia #history-list .user-version {
+  font: 400 12px/16px var(--hf-font) !important; color: #444746 !important; border: 0 !important;
+  background: none !important; padding: 0 !important;
+}
+body.hf-storia #history-list .user-name {
+  font: 400 14px/20px var(--hf-font) !important; color: #444746 !important; padding-left: 16px !important; margin-top: 2px;
+}
+body.hf-storia #history-list .revision-restore { display: none !important; }
+body.hf-storia #history-list .caret-wrap { width: 16px !important; margin-left: -18px; }
+
+/* ---------------------------------------------------------------- i menu di ONLYOFFICE */
+/* I menu a tendina (caratteri, interlinea, elenchi, tabella, forme…) come quelli della
+   pelle: bianchi, ombra morbida, voci da 32 in Google Sans 14, passaggio grigio chiaro. */
+body.hf-pelle .dropdown-menu {
+  background: #fff !important; border-radius: 4px !important; padding: 6px 0 !important;
+  font-family: var(--hf-font) !important;
+}
+body.hf-pelle .dropdown-menu > li > a, body.hf-pelle .dropdown-menu .menu-item > a {
+  font: 400 14px/20px var(--hf-font) !important; color: var(--hf-testo) !important;
+  padding: 6px 24px 6px 36px !important; min-height: 32px; box-sizing: border-box; white-space: nowrap;
+}
+body.hf-pelle .dropdown-menu > li > a:hover, body.hf-pelle .dropdown-menu > li > a:focus,
+body.hf-pelle .dropdown-menu > li.over > a, body.hf-pelle .dropdown-menu > li > a.active {
+  background: #f1f3f4 !important; color: var(--hf-testo) !important;
+}
+body.hf-pelle .dropdown-menu > li.disabled > a, body.hf-pelle .dropdown-menu > li > a.disabled { color: #a8abad !important; background: none !important; }
+body.hf-pelle .dropdown-menu > li.divider, body.hf-pelle .dropdown-menu .divider { background: #e3e3e3 !important; margin: 6px 0 !important; height: 1px !important; }
+body.hf-pelle .dropdown-menu .menu-item-icon, body.hf-pelle .dropdown-menu > li > a > .icon { opacity: .85; }
+/* La tendina dei caratteri e delle dimensioni: più ariosa. */
+body.hf-pelle .dropdown-menu.scrollable-menu > li > a { padding-left: 16px !important; }
+body.hf-pelle .combobox .dropdown-menu > li > a { padding-left: 16px !important; }
+body.hf-pelle .combobox .dropdown-menu > li > a.checked, body.hf-pelle .combobox .dropdown-menu > li.selected > a,
+body.hf-pelle .combobox .dropdown-menu > li > a.selected { background: var(--hf-premuto) !important; }
+
+/* I colori come la griglia degli editor web: tondi da 18 con 2 di aria, bordo solo sui chiari. */
+body.hf-pelle .palette-color-ext { padding: 6px 12px !important; }
+/* Dieci tondi per riga, come la griglia dei colori degli editor web. */
+body.hf-pelle .theme-colorpalette { width: 232px !important; }
+body.hf-pelle .theme-colorpalette .palette-color-dynamiccolors { width: 232px !important; }
+body.hf-pelle a.palette-color, body.hf-pelle a.palette-color-effect, body.hf-pelle a.dynamic-empty-color {
+  width: 22px !important; height: 22px !important; padding: 2px !important; border: 0 !important;
+  border-radius: 50% !important; background: transparent !important; box-sizing: border-box !important;
+}
+body.hf-pelle a.palette-color em, body.hf-pelle a.palette-color-effect em, body.hf-pelle a.dynamic-empty-color em {
+  display: block !important; width: 18px !important; height: 18px !important; border: 0 !important; border-radius: 50% !important; overflow: hidden;
+}
+body.hf-pelle a.palette-color span, body.hf-pelle a.palette-color-effect span, body.hf-pelle a.dynamic-empty-color span {
+  display: block !important; width: 18px !important; height: 18px !important; border-radius: 50% !important;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .12); border: 0 !important;
+}
+body.hf-pelle a.palette-color:hover em, body.hf-pelle a.palette-color-effect:hover em { box-shadow: 0 0 0 2px #fff, 0 0 0 3px #747775; }
+body.hf-pelle a.palette-color.selected em, body.hf-pelle a.palette-color-effect.selected em { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--hf-blu); }
+body.hf-pelle .palette-color-caption { font: 500 12px/16px var(--hf-font) !important; color: #444746 !important; padding: 4px 0 !important; }
+
+/* ---------------------------------------------------------------- i dialoghi di ONLYOFFICE */
+/* Tabella, paragrafo, immagine, impostazioni pagina, conteggio parole, link: bianchi,
+   raggio 8, titolo grande a sinistra, bottoni a pillola (il principale blu pieno). */
+body.hf-pelle .asc-window {
+  background: #fff !important; border: 0 !important; border-radius: 8px !important;
+  box-shadow: 0 4px 8px 3px rgba(60, 64, 67, .15), 0 1px 3px rgba(60, 64, 67, .3) !important;
+  font-family: var(--hf-font) !important; color: var(--hf-testo) !important;
+}
+/* La testata resta alta 34 (il corpo comincia lì, in ONLYOFFICE è posizionato a mano). */
+body.hf-pelle .asc-window > .header {
+  background: #fff !important; border: 0 !important; border-radius: 8px 8px 0 0 !important;
+  padding: 10px 48px 0 24px !important; text-align: left !important; line-height: 24px !important;
+}
+body.hf-pelle .asc-window > .header .title {
+  font: 400 18px/24px var(--hf-font) !important; color: var(--hf-testo) !important; text-align: left !important;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+body.hf-pelle .asc-window > .header .tools { top: 6px !important; right: 8px !important; }
+body.hf-pelle .asc-window > .header .tool.close {
+  width: 32px !important; height: 32px !important; border-radius: 50% !important; opacity: .8;
+}
+body.hf-pelle .asc-window > .header .tool.close:hover { background-color: var(--hf-passa) !important; }
+body.hf-pelle .asc-window .body { background: #fff !important; }
+body.hf-pelle .asc-window .footer {
+  background: #fff !important; border: 0 !important; padding: 12px 24px 20px !important;
+  text-align: right !important; border-radius: 0 0 8px 8px !important;
+}
+body.hf-pelle .asc-window .footer .dlg-btn, body.hf-pelle .asc-window .btn.normal.dlg-btn {
+  height: 36px !important; min-width: 72px !important; padding: 0 24px !important; border-radius: 18px !important;
+  font: 500 14px/20px var(--hf-font) !important; letter-spacing: .1px; border: 1px solid #747775 !important;
+  background: #fff !important; color: var(--hf-blu) !important; margin-left: 8px !important; box-shadow: none !important;
+}
+body.hf-pelle .asc-window .footer .dlg-btn:hover { background: rgba(11, 87, 208, .08) !important; }
+body.hf-pelle .asc-window .footer .dlg-btn.primary {
+  background: var(--hf-blu) !important; color: #fff !important; border-color: var(--hf-blu) !important;
+}
+body.hf-pelle .asc-window .footer .dlg-btn.primary:hover { background: #0a4fbd !important; box-shadow: 0 1px 2px rgba(0,0,0,.3), 0 1px 3px 1px rgba(0,0,0,.15) !important; }
+body.hf-pelle .asc-window label, body.hf-pelle .asc-window .input-label, body.hf-pelle .asc-window td,
+body.hf-pelle .asc-window .font-size-normal { font-family: var(--hf-font) !important; }
+body.hf-pelle .asc-window .form-control, body.hf-pelle .asc-window input.form-control,
+body.hf-pelle .asc-window textarea.form-control {
+  border: 1px solid #747775 !important; border-radius: 4px !important; background: #fff !important;
+  font-family: var(--hf-font) !important; color: var(--hf-testo) !important; box-shadow: none !important;
+}
+body.hf-pelle .asc-window .form-control:focus { border-color: var(--hf-blu) !important; box-shadow: inset 0 0 0 1px var(--hf-blu) !important; }
+body.hf-pelle .asc-window .btn-group > .form-control + .btn, body.hf-pelle .asc-window .input-group-btn .btn { border-color: #747775 !important; }
+body.hf-pelle .asc-window .nav-tabs, body.hf-pelle .asc-window .tabs { border-color: #e1e3e1 !important; }
+body.hf-pelle .asc-window .listview, body.hf-pelle .asc-window .treeview { border-color: #c4c7c5 !important; border-radius: 4px !important; }
+body.hf-pelle .modals-mask { background: rgba(32, 33, 36, .4) !important; opacity: 1 !important; }
+/* Le finestre senza titolo (avvisi, conferme): lo stesso bianco, il testo grande. */
+body.hf-pelle .asc-window.alert .body .info-box .text, body.hf-pelle .asc-window.alert .body p {
+  font: 400 14px/20px var(--hf-font) !important; color: #444746 !important;
+}
+
+/* ---------------------------------------------------------------- trova e sostituisci */
+/* La barra «Trova» (Ctrl+F) come la casella degli editor web: in alto a destra, bianca,
+   arrotondata. */
+body.hf-pelle .search-bar, body.hf-pelle .asc-window.search-bar {
+  border-radius: 8px !important; box-shadow: 0 4px 8px 3px rgba(60, 64, 67, .15), 0 1px 3px rgba(60, 64, 67, .3) !important;
+  background: #fff !important; border: 0 !important;
+}
+body.hf-pelle .search-bar .body, body.hf-pelle .search-bar .box { background: #fff !important; }
+body.hf-pelle .search-bar input.form-control { height: 32px !important; border-radius: 4px !important; }
+body.hf-pelle #search-box, body.hf-pelle #left-panel-search { font-family: var(--hf-font) !important; background: #fff !important; }
+
+/* ---------------------------------------------------------------- barre di scorrimento */
+/* Sottili come quelle degli editor web (i pannelli; quelle del foglio le disegna l'editor). */
+body.hf-pelle .ps__rail-y { width: 8px !important; background: transparent !important; }
+body.hf-pelle .ps__rail-x { height: 8px !important; background: transparent !important; }
+body.hf-pelle .ps__thumb-y, body.hf-pelle .ps__rail-y > div { width: 6px !important; right: 1px !important; border-radius: 3px !important; background: #c4c7c5 !important; border: 0 !important; }
+body.hf-pelle .ps__thumb-x, body.hf-pelle .ps__rail-x > div { height: 6px !important; bottom: 1px !important; border-radius: 3px !important; background: #c4c7c5 !important; border: 0 !important; }
+body.hf-pelle ::-webkit-scrollbar { width: 8px; height: 8px; }
+body.hf-pelle ::-webkit-scrollbar-thumb { background: #c4c7c5; border-radius: 4px; }
+body.hf-pelle ::-webkit-scrollbar-track { background: transparent; }
+
+/* ---------------------------------------------------------------- fogli: formula e schede */
+body.hf-pelle-cell #cell-editing-box { background: #fff !important; border-color: #e1e3e1 !important; }
+body.hf-pelle-cell #ce-cell-name, body.hf-pelle-cell #ce-cell-name input {
+  font: 400 13px/22px var(--hf-font) !important; color: var(--hf-testo) !important; border: 0 !important; background: #fff !important;
+}
+body.hf-pelle-cell #ce-func-label { opacity: .7; }
+body.hf-pelle-cell #ce-cell-content { font: 400 13px/20px Roboto, Arial, sans-serif !important; }
+/* Le schede dei fogli: quella aperta azzurra col testo blu, le altre grigie, come gli
+   editor web; «+» e l'elenco dei fogli a sinistra restano quelli di ONLYOFFICE. */
+body.hf-pelle-cell #statusbar { background: var(--hf-fondo) !important; }
+body.hf-pelle-cell #statusbar_bottom .sheet-list li > span, body.hf-pelle-cell .statusbar .sheet-list li > span {
+  font: 500 14px/20px var(--hf-font) !important; color: #444746 !important; border: 0 !important;
+  background: transparent !important; border-radius: 0 !important; padding: 5px 16px !important; height: auto !important;
+}
+body.hf-pelle-cell .statusbar .sheet-list li { border: 0 !important; background: none !important; margin-right: 2px !important; }
+body.hf-pelle-cell .statusbar .sheet-list li:hover > span { background: rgba(68, 71, 70, .08) !important; }
+body.hf-pelle-cell .statusbar .sheet-list li.active > span, body.hf-pelle-cell .statusbar .sheet-list li.selected > span {
+  background: #e1e9f7 !important; color: var(--hf-blu) !important; box-shadow: none !important;
+}
+body.hf-pelle-cell .statusbar .sheet-list li.active { border-top: 0 !important; }
+
+/* ---------------------------------------------------------------- presentazioni */
+body.hf-pelle-slide #id_panel_thumbnails, body.hf-pelle-slide #id_thumbnails { background: var(--hf-fondo) !important; }
+
+/* ---------------------------------------------------------------- conteggio parole */
+#hf-conteggio { position: fixed; inset: 0; z-index: 10001; background: rgba(32, 33, 36, .4); display: grid; place-items: center; font-family: var(--hf-font); }
+#hf-conteggio > div { background: #fff; border-radius: 8px; padding: 24px 24px 16px; width: min(360px, calc(100vw - 32px)); box-shadow: var(--hf-ombra); color: var(--hf-testo); }
+#hf-conteggio h2 { font: 400 22px/28px var(--hf-font); margin: 0 0 16px; }
+#hf-conteggio table { width: 100%; border-collapse: collapse; font: 400 14px/20px var(--hf-font); }
+#hf-conteggio td { padding: 6px 0; border-bottom: 1px solid #e3e3e3; }
+#hf-conteggio td + td { text-align: right; font-variant-numeric: tabular-nums; }
+#hf-conteggio .hf-fine { text-align: right; margin-top: 20px; }
