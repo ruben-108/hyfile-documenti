@@ -13,8 +13,8 @@
 /* Sul body da subito, non sulla classe della pelle: ONLYOFFICE legge i colori della pagina
    (fondo, righello) quando parte, prima che la pelle abbia finito di montarsi. */
 body, body.hf-pelle {
-  --hf-fondo: #f9fbfd;
-  --hf-barra: #edf2fa;
+  --hf-fondo: #f8fafd;
+  --hf-barra: #f0f4f9;
   --hf-testo: #1f1f1f;
   --hf-icona: #444746;
   --hf-passa: rgba(68, 71, 70, .08);
@@ -40,11 +40,18 @@ body, body.hf-pelle {
   --highlight-button-pressed-hover: #c2d7f8 !important;
   --border-toolbar: transparent !important;
   --canvas-background: var(--hf-fondo) !important;
-  --canvas-page-border: #dadce0 !important;
+  --canvas-page-border: #c4c7c5 !important;
   --canvas-ruler-background: var(--hf-fondo) !important;
   --canvas-ruler-border: var(--hf-fondo) !important;
   --canvas-ruler-margins-background: #e3e3e3 !important;
   --canvas-ruler-mark: #444746 !important;
+  /* I triangolini del righello blu, come negli editor web. */
+  --canvas-ruler-handle-border: #4285f4 !important;
+  --canvas-ruler-handle-fill: #4285f4 !important;
+  --canvas-ruler-handle-border-hover: #1a73e8 !important;
+  --canvas-ruler-handle-fill-hover: #1a73e8 !important;
+  --canvas-ruler-margins-background: #e9eef6 !important;
+  --canvas-ruler-background: #fff !important;
   --canvas-scroll-thumb: #dadce0 !important;
   --canvas-scroll-thumb-hover: #bdc1c6 !important;
   --canvas-scroll-thumb-border: #dadce0 !important;
@@ -76,21 +83,36 @@ body.hf-pelle .hf-parcheggio .dropdown-menu * { visibility: visible; pointer-eve
 body.hf-pelle #app-title { display: none !important; }
 
 /* ---------------------------------------------------------------- la testata */
-body.hf-pelle #toolbar { background: var(--hf-fondo) !important; overflow: visible !important; z-index: 3; }
+/* Le misure sono quelle della testata degli editor web (misurate su una schermata vera):
+   alta 64, icona 40×40 a (12,10), titolo da y 8 (28 di alto), menu da y 36 (24), a destra
+   bottoni da 40 centrati a y 30, poi il posto di HyFile fino al bordo. Lo scheletro di
+   caricamento (in fondo) ha gli stessi numeri: se cambiano qui, cambiano anche là. */
+/* z-index alto: i menu dei bottoni di ONLYOFFICE stanno dentro la barra (anche parcheggiata),
+   e nelle presentazioni l'area della diapositiva li copriva (layout, forme). Sotto le
+   finestre modali di ONLYOFFICE (1000 in su). */
+body.hf-pelle #toolbar { background: var(--hf-fondo) !important; overflow: visible !important; z-index: 990; padding: 0 !important; }
+/* Sotto la barra il documento comincia subito (a y 112, come il righello degli editor web):
+   ONLYOFFICE ci metteva 8 px suoi, e 40 di colonna a sinistra per i suoi bottoni, che la
+   pelle non usa (i pannelli si aprono dai menu). */
+body.hf-pelle #viewport-vbox-layout > .layout-item.middle { padding-top: 0 !important; }
+/* La colonna è larga 40 (ONLYOFFICE lo scrive nello stile) solo quando nessun pannello è
+   aperto: allora sparisce; aperto un pannello (commenti, struttura) vale la sua larghezza. */
+body.hf-pelle #left-menu[style*="width: 40px"] { width: 0 !important; min-width: 0 !important; }
+body.hf-pelle #left-menu .left-panel { padding-left: 0 !important; padding-right: 0 !important; }
 #hf-testa {
-  display: flex; align-items: flex-start; gap: 8px;
-  height: 64px; box-sizing: border-box; padding: 8px 16px 0 12px;
+  display: flex; align-items: flex-start; position: relative;
+  height: 64px; box-sizing: border-box; padding: 8px 0 0 12px;
   background: var(--hf-fondo); font-family: var(--hf-font); color: var(--hf-testo);
   user-select: none;
 }
 #hf-testa .hf-logo {
   flex: none; width: 40px; height: 40px; display: grid; place-items: center;
-  border-radius: 50%; cursor: pointer; margin-top: 2px;
+  border-radius: 50%; cursor: pointer; margin: 2px 5px 0 0;
 }
 #hf-testa .hf-logo:hover { background: var(--hf-passa); }
-#hf-testa .hf-logo svg { width: 26px; height: 32px; }
+#hf-testa .hf-logo svg { width: 24px; height: 30px; }
 #hf-testa .hf-centro { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
-#hf-testa .hf-riga-titolo { display: flex; align-items: center; gap: 2px; height: 30px; min-width: 0; }
+#hf-testa .hf-riga-titolo { display: flex; align-items: center; gap: 2px; height: 28px; min-width: 0; }
 #hf-titolo {
   font: 400 18px/24px var(--hf-font); color: var(--hf-testo); height: 28px; box-sizing: border-box;
   border: 1px solid transparent; border-radius: 4px; padding: 0 6px; margin-left: -1px;
@@ -106,39 +128,66 @@ body.hf-pelle #toolbar { background: var(--hf-fondo) !important; overflow: visib
   font: 400 12px/16px var(--hf-font); color: #444746; white-space: nowrap;
 }
 #hf-testa .hf-stato svg { width: 20px; height: 20px; fill: #444746; }
-#hf-menu { display: flex; align-items: center; height: 26px; margin-left: -2px; }
+#hf-menu { display: flex; align-items: center; height: 24px; margin-left: 0; }
 #hf-menu > button {
   font: 400 14px/20px var(--hf-font); color: var(--hf-testo); background: none; border: 0;
-  padding: 1px 7px 3px; border-radius: 4px; cursor: pointer; white-space: nowrap;
+  padding: 2px 7px; border-radius: 4px; cursor: pointer; white-space: nowrap; height: 24px;
 }
 #hf-menu > button:hover { background: var(--hf-passa); }
 #hf-menu > button.aperto { background: var(--hf-premuto); }
-#hf-testa .hf-destra { flex: none; display: flex; align-items: center; gap: 4px; height: 48px; }
+#hf-testa .hf-destra { flex: none; display: flex; align-items: center; gap: 8px; height: 40px; margin-top: 2px; }
 .hf-tondo {
-  width: 40px; height: 40px; border-radius: 50%; border: 0; background: none;
+  width: 40px; height: 40px; border-radius: 50%; border: 0; background: none; flex: none;
   display: grid; place-items: center; cursor: pointer; padding: 0;
 }
 .hf-tondo:hover { background: var(--hf-passa); }
+.hf-tondo.premuto { background: var(--hf-premuto); }
 .hf-tondo svg { width: 24px; height: 24px; fill: var(--hf-icona); }
-#hf-condividi {
-  display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 22px 0 16px;
-  border: 0; border-radius: 20px; background: var(--hf-condividi); color: var(--hf-condividi-testo);
-  font: 500 14px/20px var(--hf-font); cursor: pointer; margin-left: 4px; letter-spacing: .1px;
+/* Condividi in due pezzi: 114 + 1 di bianco + 33, alto 40 (gli stessi dello scheletro). */
+#hf-condividi-box { display: inline-flex; flex: none; height: 40px; border-radius: 20px; background: #fff; overflow: hidden; }
+#hf-condividi, #hf-condividi-freccia {
+  display: inline-flex; align-items: center; height: 40px; border: 0; margin: 0; cursor: pointer;
+  background: var(--hf-condividi); color: var(--hf-condividi-testo); box-sizing: border-box;
 }
-#hf-condividi:hover { box-shadow: 0 1px 2px rgba(0,0,0,.3), 0 1px 3px 1px rgba(0,0,0,.15); }
-#hf-condividi svg { width: 20px; height: 20px; fill: currentColor; }
+#hf-condividi { width: 114px; gap: 8px; padding: 0 0 0 16px; font: 500 14px/20px var(--hf-font); letter-spacing: .1px; }
+#hf-condividi svg { width: 20px; height: 20px; fill: currentColor; flex: none; }
+#hf-condividi-freccia { width: 33px; margin-left: 1px; padding: 0 0 0 4px; justify-content: center; }
+#hf-condividi-freccia svg { width: 20px; height: 20px; fill: currentColor; }
+#hf-condividi:hover, #hf-condividi-freccia:hover { background: #b2dcf7; }
+#hf-condividi-freccia.aperto { background: #a8d4f2; }
+/* Il posto di HyFile: vuoto, la pagina ci disegna sopra (quadratini, campanella, profilo). */
+#hf-posto-hyfile { flex: none; width: var(--hf-posto, 124px); height: 40px; }
+/* Le facce di chi c'è: anello del colore del suo cursore, come nel documento. */
+#hf-gente { display: flex; align-items: center; gap: 6px; margin-right: 2px; }
+#hf-gente:empty { display: none; }
+.hf-faccia {
+  width: 32px; height: 32px; border-radius: 50%; padding: 0; flex: none; cursor: pointer;
+  border: 2px solid var(--hf-fondo); box-shadow: 0 0 0 2px var(--hf-anello, #747775);
+  display: grid; place-items: center; color: #fff; font: 500 13px/1 var(--hf-font); box-sizing: border-box;
+}
+.hf-faccia:hover { filter: brightness(1.08); }
+.hf-faccia.hf-piu-gente { background: #e9eef6; color: #444746; box-shadow: none; border-color: #e9eef6; }
+.hf-faccia.hf-piu-gente.aperto { background: var(--hf-premuto); border-color: var(--hf-premuto); }
+.hf-pallino { width: 10px; height: 10px; border-radius: 50%; flex: none; margin-left: -4px; }
+.hf-tip {
+  position: fixed; z-index: 10050; display: none; pointer-events: none; max-width: 280px;
+  background: #303030; color: #f2f2f2; border-radius: 4px; padding: 4px 8px;
+  font: 400 12px/16px var(--hf-font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hf-pieno {
+  height: 40px; padding: 0 24px; border: 0; border-radius: 20px; cursor: pointer; flex: none;
+  background: var(--hf-blu); color: #fff; font: 500 14px/20px var(--hf-font); letter-spacing: .1px;
+}
+.hf-pieno:hover { box-shadow: 0 1px 2px rgba(0,0,0,.3), 0 1px 3px 1px rgba(0,0,0,.15); background: #0a4fbd; }
 .hf-avatar {
   width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
-  color: #fff; font: 500 14px/1 var(--hf-font); margin: 0 4px 0 8px; flex: none;
+  color: #fff; font: 500 14px/1 var(--hf-font); flex: none;
 }
-#hf-gente { display: flex; align-items: center; }
-#hf-gente .hf-avatar { margin: 0 0 0 -6px; width: 30px; height: 30px; font-size: 13px; border: 2px solid var(--hf-fondo); }
-#hf-gente:empty { display: none; }
 
 /* ---------------------------------------------------------------- la barra */
 #hf-barra {
   display: flex; align-items: center; height: 40px; box-sizing: border-box;
-  margin: 0 8px; padding: 0 8px; border-radius: 24px; background: var(--hf-barra);
+  margin: 0 16px; padding: 0 8px; border-radius: 20px; background: var(--hf-barra);
   font-family: var(--hf-font); color: var(--hf-testo); overflow: hidden; position: relative;
 }
 #hf-barra .hf-gruppo { display: flex; align-items: center; flex: none; gap: 1px; }
@@ -270,3 +319,410 @@ body.hf-pelle-cell #cell-editing-box { border-top: 1px solid #e1e3e1 !important;
 
 .hf-bottone.hf-freccina { width: 16px; margin-left: -2px; }
 .hf-bottone.hf-freccina svg { width: 18px; height: 18px; }
+
+/* ---------------------------------------------------------------- lo scheletro del caricamento */
+/* Dal primo fotogramma, prima di ogni JavaScript: lo scheletro di ONLYOFFICE (#loading-mask,
+   nell'index.html) ridisegnato come quello di un editor web, con le misure della pelle
+   finita (le stesse della testata qui sopra e del layout di ONLYOFFICE sotto la barra).
+   pelle.js poi lo prende per sé (#hf-scheletro) e lo tiene finché la pelle non c'è.
+   I tre editor si riconoscono da quello che ONLYOFFICE mette nel suo scheletro: solo i
+   documenti hanno #sktoolbar-pdf, solo i fogli .skformula; il segnaposto viene dopo
+   tutti e due, e porta i pezzi che cambiano col tipo. */
+#loading-mask.hf-finta { display: none !important; }
+:where(#loading-mask:not(.hf-finta), #hf-scheletro) {
+  position: fixed !important; inset: 0 !important; z-index: 2147483000 !important;
+  display: block !important; overflow: hidden !important; margin: 0 !important; padding: 0 !important;
+  background: #f8fafd !important; border: 0 !important; opacity: 1; transition: opacity .15s linear;
+  --sk-grigio: #e3e8ef;
+  --sk-storia: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23444746' d='M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.95 8.95 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z'/%3E%3C/svg%3E");
+  --sk-commenti: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23444746' d='M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z'/%3E%3C/svg%3E");
+  --sk-condividi: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='148' height='40'%3E%3Cpath d='M20 0h94v40H20a20 20 0 0 1 0-40z' fill='%23c2e7ff'/%3E%3Cpath d='M115 0h13a20 20 0 0 1 0 40h-13z' fill='%23c2e7ff'/%3E%3Cpath transform='translate(16 10) scale(.8333)' fill='%23001d35' d='M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z'/%3E%3Ctext x='44' y='25' font-family='Google Sans,Roboto,Segoe UI,Helvetica Neue,Arial,sans-serif' font-size='14' font-weight='500' letter-spacing='.1' fill='%23001d35'%3ECondividi%3C/text%3E%3Cpath transform='translate(121.5 10) scale(.8333)' fill='%23001d35' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+}
+:where(#loading-mask:not(.hf-finta), #hf-scheletro) > *, :where(#loading-mask:not(.hf-finta), #hf-scheletro) > * * { display: none !important; }
+:where(#loading-mask:not(.hf-finta), #hf-scheletro) > :where(.brendpanel, .sktoolbar:not(#sktoolbar-pdf), .skformula, .placeholder) {
+  display: block !important; position: absolute !important; margin: 0 !important; padding: 0 !important;
+  border: 0 !important; box-shadow: none !important; animation: none !important; opacity: 1 !important;
+  background: none !important; width: auto !important; height: auto !important; box-sizing: border-box !important;
+  min-height: 0 !important; max-width: none !important; flex-direction: row !important;
+}
+/* La testata: due righe grigie al posto di titolo (da x 64, y 14) e menu (y 42). */
+:where(#loading-mask:not(.hf-finta), #hf-scheletro) > .brendpanel { left: 0 !important; top: 0 !important; right: 0 !important; height: 64px !important; }
+:where(#loading-mask:not(.hf-finta), #hf-scheletro) > .brendpanel::before, :where(#loading-mask:not(.hf-finta), #hf-scheletro) > .brendpanel::after {
+  content: ''; position: absolute; left: 64px; background: var(--sk-grigio); border-radius: 8px;
+}
+:where(#loading-mask:not(.hf-finta), #hf-scheletro) > .brendpanel::before { top: 14px; width: 220px; height: 16px; }
+:where(#loading-mask:not(.hf-finta), #hf-scheletro) > .brendpanel::after { top: 42px; width: 360px; height: 12px; border-radius: 6px; }
+/* La barra a pillola: 16 dai lati, da y 64, alta 40. */
+:where(#loading-mask:not(.hf-finta), #hf-scheletro) > .sktoolbar:not(#sktoolbar-pdf) {
+  left: 16px !important; right: 16px !important; top: 64px !important; height: 40px !important;
+  border-radius: 20px !important; background: #f0f4f9 !important;
+}
+/* Sotto la barra (da y 112) il foglio, la griglia o la diapositiva. */
+:where(#loading-mask:not(.hf-finta), #hf-scheletro) > .placeholder { left: 0 !important; right: 0 !important; top: 112px !important; bottom: 0 !important; }
+/* L'icona del tipo (24×30 a x 20, y 15) e, a destra, cronologia e commenti (tondi da 40,
+   icone da 24) e Condividi (114 + 1 + 33), fino al posto di HyFile. */
+:where(#loading-mask:not(.hf-finta), #hf-scheletro) > .placeholder::before {
+  content: ''; position: fixed; left: 20px; top: 15px; width: 24px; height: 30px;
+  background: no-repeat center / 24px 30px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 32'%3E%3Crect width='26' height='32' rx='5' fill='%232f6fe4'/%3E%3Cpath d='M7 11h12M7 15h12M7 19h8' stroke='%23fff' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+:where(#loading-mask:not(.hf-finta), #hf-scheletro) > .placeholder::after {
+  content: ''; position: fixed; top: 10px; height: 40px; width: 244px;
+  right: calc(var(--hf-posto, 124px) + 8px);
+  background:
+    no-repeat right 0 top 0 / 148px 40px var(--sk-condividi),
+    no-repeat right 164px top 8px / 24px 24px var(--sk-commenti),
+    no-repeat right 212px top 8px / 24px 24px var(--sk-storia);
+}
+
+/* Documenti: il foglio A4 (796 col bordo) a y 157, centrato fra il righello verticale (19 a
+   sinistra) e la barra di scorrimento (14 a destra), sotto il righello (26). */
+#sktoolbar-pdf + .placeholder {
+  background:
+    no-repeat calc(50% + 2.5px) 46px / 794px 3000px linear-gradient(#fff, #fff),
+    no-repeat calc(50% + 2.5px) 45px / 796px 3000px linear-gradient(#c4c7c5, #c4c7c5) !important;
+}
+
+/* Documenti da guardare soltanto (ONLYOFFICE lo segna sul suo segnaposto, margin-top 19):
+   niente righelli, quindi il foglio sale di 26 e si centra su tutta la larghezza; niente
+   Condividi in testata, cronologia e commenti vanno accanto al posto di HyFile. */
+#sktoolbar-pdf + .placeholder[style*="margin-top"] {
+  background:
+    no-repeat calc(50% - 7px) 20px / 794px 3000px linear-gradient(#fff, #fff),
+    no-repeat calc(50% - 7px) 19px / 796px 3000px linear-gradient(#c4c7c5, #c4c7c5) !important;
+}
+#sktoolbar-pdf + .placeholder[style*="margin-top"]::after {
+  background:
+    no-repeat right 8px top 8px / 24px 24px var(--sk-commenti),
+    no-repeat right 56px top 8px / 24px 24px var(--sk-storia);
+}
+
+/* Fogli: la barra della formula (y 112, alta 24, il nome della cella largo 100), da y 140 la
+   griglia (intestazioni grigie: colonne alte 19, righe larghe 25; celle 64×19), in fondo la
+   barra di scorrimento (14) e le schede dei fogli (32). */
+:where(#loading-mask:not(.hf-finta), #hf-scheletro) > .skformula {
+  left: 0 !important; right: 0 !important; top: 112px !important; height: 24px !important;
+  border-top: 1px solid #e1e3e1 !important; border-bottom: 1px solid #e1e3e1 !important;
+  background: linear-gradient(#e1e3e1, #e1e3e1) no-repeat 100px 0 / 1px 100%, #fff !important;
+}
+:where(#loading-mask:not(.hf-finta), #hf-scheletro) > .skformula + .placeholder {
+  top: 140px !important; bottom: 46px !important;
+  background:
+    linear-gradient(#e1e1e1, #e1e1e1) no-repeat 0 18px / 100% 1px,
+    linear-gradient(#e1e1e1, #e1e1e1) no-repeat 25px 0 / 1px 100%,
+    linear-gradient(#f3f3f3, #f3f3f3) no-repeat 0 0 / 100% 19px,
+    linear-gradient(#f3f3f3, #f3f3f3) no-repeat 0 0 / 25px 100%,
+    repeating-linear-gradient(to right, transparent 0 63px, #e2e2e2 63px 64px) no-repeat 26px 0 / calc(100% - 40px) 100%,
+    repeating-linear-gradient(to bottom, transparent 0 18px, #e2e2e2 18px 19px) no-repeat 0 19px / calc(100% - 14px) 100%,
+    linear-gradient(#fff, #fff) no-repeat 0 0 / calc(100% - 14px) 100% !important;
+}
+:where(#loading-mask:not(.hf-finta), #hf-scheletro) > .skformula + .placeholder::after {
+  right: 0; left: 0; top: auto; bottom: 0; height: 32px; width: auto; box-sizing: border-box;
+  border-top: 2px solid #e1e3e1; background: #f8fafd;
+}
+:where(#loading-mask:not(.hf-finta), #hf-scheletro) > .skformula + .placeholder::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 32'%3E%3Crect width='26' height='32' rx='5' fill='%231e8e3e'/%3E%3Crect x='6' y='10' width='14' height='13' rx='1.2' fill='none' stroke='%23fff' stroke-width='1.8'/%3E%3Cpath d='M6 14.5h14M6 18.8h14M11 10v13' stroke='%23fff' stroke-width='1.8'/%3E%3C/svg%3E"); }
+/* Fogli: i bottoni a destra li porta la barra della formula (l'::after del segnaposto qui è
+   la barra delle schede). */
+:where(#loading-mask:not(.hf-finta), #hf-scheletro) > .skformula::after {
+  content: ''; position: fixed; top: 10px; height: 40px; width: 244px;
+  right: calc(var(--hf-posto, 124px) + 8px);
+  background:
+    no-repeat right 0 top 0 / 148px 40px var(--sk-condividi),
+    no-repeat right 164px top 8px / 24px 24px var(--sk-commenti),
+    no-repeat right 212px top 8px / 24px 24px var(--sk-storia);
+}
+
+/* Presentazioni: la prima miniatura scelta (bordo blu, a x 29, y 124, 211×123, col numero) e
+   la diapositiva 16:9 alta quanto lo spazio meno 24, centrata fra le miniature (260) e la
+   barra di scorrimento (15), sopra le note (56). A destra c'è anche «Presentazione». */
+:where(#loading-mask:not(.hf-finta), #hf-scheletro) > .sktoolbar:not(#sktoolbar-pdf) + .placeholder {
+  background:
+    no-repeat 13px 15px / 8px 12px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='12'%3E%3Ctext x='0' y='10' font-family='Roboto,Arial,sans-serif' font-size='12' fill='%23444746'%3E1%3C/text%3E%3C/svg%3E"),
+    no-repeat 34px 17px / 201px 113px linear-gradient(#fff, #fff),
+    no-repeat 29px 12px / 211px 123px linear-gradient(#0b57d0, #0b57d0) !important;
+}
+:where(#loading-mask:not(.hf-finta), #hf-scheletro) > .sktoolbar:not(#sktoolbar-pdf) + .placeholder > .slide-h {
+  display: flex !important; position: absolute !important; left: 260px !important; right: 15px !important;
+  top: 0 !important; bottom: 56px !important; width: auto !important; height: auto !important;
+  margin: 0 !important; padding: 0 !important; align-items: center; justify-content: center; background: none !important;
+}
+:where(#loading-mask:not(.hf-finta), #hf-scheletro) > .sktoolbar:not(#sktoolbar-pdf) + .placeholder > .slide-h > .slide-v {
+  display: block !important; background: #fff !important; flex: none; margin: 0 !important; border: 0 !important;
+  padding: 0 !important; position: static !important; max-width: none !important;
+  height: min(calc(100vh - 192px), calc((100vw - 299px) * 9 / 16)) !important; aspect-ratio: 16 / 9; width: auto !important;
+}
+:where(#loading-mask:not(.hf-finta), #hf-scheletro) > .sktoolbar:not(#sktoolbar-pdf) + .placeholder::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 32'%3E%3Crect width='26' height='32' rx='5' fill='%23e8a000'/%3E%3Crect x='6' y='11' width='14' height='10' rx='1.5' fill='none' stroke='%23fff' stroke-width='1.9'/%3E%3C/svg%3E"); }
+:where(#loading-mask:not(.hf-finta), #hf-scheletro) > .sktoolbar:not(#sktoolbar-pdf) + .placeholder::after {
+  width: 400px;
+  background:
+    no-repeat right 0 top 0 / 148px 40px var(--sk-condividi),
+    no-repeat right 156px top 0 / 148px 40px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='148' height='40'%3E%3Crect x='.5' y='.5' width='147' height='39' rx='19.5' fill='none' stroke='%23747775'/%3E%3Cpath transform='translate(12 10) scale(.8333)' fill='%231f1f1f' d='M10 8.64L15.27 12 10 15.36V8.64M8 5v14l11-7L8 5z'/%3E%3Ctext x='38' y='25' font-family='Google Sans,Roboto,Segoe UI,Helvetica Neue,Arial,sans-serif' font-size='14' font-weight='500' fill='%231f1f1f'%3EPresentazione%3C/text%3E%3C/svg%3E"),
+    no-repeat right 320px top 8px / 24px 24px var(--sk-commenti),
+    no-repeat right 368px top 8px / 24px 24px var(--sk-storia);
+}
+
+/* Quando la pelle è costruita lo scheletro copre solo il foglio, fino al documento disegnato. */
+body.hf-pronta #hf-scheletro { background: transparent !important; pointer-events: none !important; z-index: 900 !important; }
+body.hf-pronta #hf-scheletro > :is(.brendpanel, .sktoolbar) { display: none !important; }
+body.hf-pronta #hf-scheletro > .placeholder { background-color: #f8fafd !important; }
+body.hf-pronta #hf-scheletro > .placeholder::before,
+body.hf-pronta #hf-scheletro > .skformula::after,
+body.hf-pronta #hf-scheletro > :not(.skformula + .placeholder).placeholder::after { display: none !important; }
+#hf-scheletro.hf-via { opacity: 0 !important; }
+
+/* ---------------------------------------------------------------- le attese di ONLYOFFICE */
+/* «Caricamento…», «Salvataggio…»: non il riquadro nero al centro, ma un avviso scuro e
+   piccolo in basso a sinistra, come negli editor web. Mentre si apre il documento non
+   si vede (c'è lo scheletro). */
+body.hf-pelle .asc-loadmask { background: transparent !important; }
+body.hf-pelle .asc-loadmask-body {
+  left: 24px !important; right: auto !important; top: auto !important; bottom: 24px !important;
+  min-width: 0 !important; width: auto !important; height: auto !important; margin: 0 !important;
+  display: flex !important; align-items: center; gap: 12px; padding: 14px 20px 14px 16px !important;
+  background: #303030 !important; border: 0 !important; border-radius: 4px !important; color: #f2f2f2 !important;
+  box-shadow: 0 2px 6px 2px rgba(0,0,0,.15), 0 1px 2px rgba(0,0,0,.3) !important;
+}
+body.hf-pelle .asc-loadmask-body .asc-loadmask-title {
+  font: 400 14px/20px var(--hf-font) !important; color: #f2f2f2 !important; margin: 0 !important; float: none !important;
+}
+body.hf-pelle .asc-loadmask-body .asc-loadmask-image {
+  width: 18px !important; height: 18px !important; margin: 0 !important; float: none !important; flex: none;
+  background: none !important; border: 2px solid rgba(168, 199, 250, .35); border-top-color: #a8c7fa;
+  border-radius: 50%; box-sizing: border-box; animation: hf-gira .8s linear infinite !important;
+}
+@keyframes hf-gira { to { transform: rotate(360deg); } }
+body:not(.hf-documento) .asc-loadmask-body { display: none !important; }
+
+/* ---------------------------------------------------------------- la barra nascosta (⌃) */
+body.hf-compatta #hf-testa { display: none !important; }
+body.hf-compatta #hf-barra { margin-top: 8px; }
+#hf-barra .hf-sep-fissa { width: 1px; height: 20px; background: #c7c7c7; margin: 0 6px 0 8px; flex: none; }
+
+/* ---------------------------------------------------------------- la cronologia */
+/* Come negli editor web: in alto la freccia, la data della versione scelta e «Ripristina
+   questa versione»; a destra il pannello con le versioni (data in grassetto, sotto chi
+   l'ha fatta col pallino del suo colore, la scelta in azzurro). Niente barra dei comandi. */
+body.hf-storia #hf-barra { display: none !important; }
+#hf-testa-storia {
+  position: absolute; left: 0; top: 0; bottom: 0; right: calc(var(--hf-posto, 124px) + 8px);
+  display: flex; align-items: center; gap: 8px; padding: 0 0 0 8px; background: var(--hf-fondo); z-index: 2;
+}
+#hf-testa-storia .hf-storia-titolo {
+  font: 400 22px/28px var(--hf-font); color: var(--hf-testo); white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; min-width: 0; margin-left: 4px;
+}
+#hf-testa-storia .hf-spinta { flex: 1 1 auto; }
+#hf-testa-storia .hf-pieno { margin-right: 4px; }
+body.hf-storia #left-panel-history {
+  width: 300px !important; background: #fff !important; border-left: 1px solid #e1e3e1 !important;
+  box-shadow: none !important; border-radius: 0 !important; margin: 0 !important; padding: 0 !important;
+  font-family: var(--hf-font) !important;
+}
+body.hf-storia .layout-resizer { display: none !important; }
+body.hf-storia #history-box { background: #fff !important; }
+body.hf-storia #history-header {
+  height: auto !important; padding: 16px 12px 12px 20px !important; border: 0 !important;
+  display: flex; align-items: center; background: #fff !important;
+}
+body.hf-storia #history-header label {
+  font: 400 18px/24px var(--hf-font) !important; color: var(--hf-testo) !important; flex: 1 1 auto; order: 0;
+}
+body.hf-storia #history-btn-back { display: none !important; }
+body.hf-storia #history-btn-menu { order: 1; }
+body.hf-storia #history-list .tree-item {
+  padding: 10px 16px 10px 20px !important; border: 0 !important; border-radius: 0 !important;
+  background: transparent !important; cursor: pointer; min-height: 0 !important;
+}
+body.hf-storia #history-list .tree-item:hover { background: rgba(68, 71, 70, .08) !important; }
+body.hf-storia #history-list .selected .tree-item, body.hf-storia #history-list .tree-item.selected,
+body.hf-storia #history-list .item.selected .tree-item { background: var(--hf-premuto) !important; }
+body.hf-storia #history-list .item, body.hf-storia #history-list .item.selected { background: transparent !important; border: 0 !important; box-shadow: none !important; }
+body.hf-storia #history-list .item-internal { position: relative; display: block !important; padding: 0 !important; }
+body.hf-storia #history-list .color {
+  position: absolute !important; left: 0 !important; bottom: 5px !important; top: auto !important;
+  width: 10px !important; height: 10px !important; min-width: 0 !important; border-radius: 50% !important;
+  font-size: 0 !important; line-height: 0 !important; margin: 0 !important; padding: 0 !important; border: 0 !important;
+  background-image: none !important;
+}
+body.hf-storia #history-list .item-content { margin: 0 !important; padding: 0 !important; }
+body.hf-storia #history-list .item-title { display: flex; align-items: baseline; gap: 8px; }
+body.hf-storia #history-list .user-date { font: 500 14px/20px var(--hf-font) !important; color: var(--hf-testo) !important; }
+body.hf-storia #history-list .user-version {
+  font: 400 12px/16px var(--hf-font) !important; color: #444746 !important; border: 0 !important;
+  background: none !important; padding: 0 !important;
+}
+body.hf-storia #history-list .user-name {
+  font: 400 14px/20px var(--hf-font) !important; color: #444746 !important; padding-left: 16px !important; margin-top: 2px;
+}
+body.hf-storia #history-list .revision-restore { display: none !important; }
+body.hf-storia #history-list .caret-wrap { width: 16px !important; margin-left: -18px; }
+
+/* ---------------------------------------------------------------- i menu di ONLYOFFICE */
+/* I menu a tendina (caratteri, interlinea, elenchi, tabella, forme…) come quelli della
+   pelle: bianchi, ombra morbida, voci da 32 in Google Sans 14, passaggio grigio chiaro. */
+body.hf-pelle .dropdown-menu {
+  background: #fff !important; border-radius: 4px !important; padding: 6px 0 !important;
+  font-family: var(--hf-font) !important;
+}
+body.hf-pelle .dropdown-menu > li > a, body.hf-pelle .dropdown-menu .menu-item > a {
+  font: 400 14px/20px var(--hf-font) !important; color: var(--hf-testo) !important;
+  padding: 6px 24px 6px 36px !important; min-height: 32px; box-sizing: border-box; white-space: nowrap;
+}
+body.hf-pelle .dropdown-menu > li > a:hover, body.hf-pelle .dropdown-menu > li > a:focus,
+body.hf-pelle .dropdown-menu > li.over > a, body.hf-pelle .dropdown-menu > li > a.active {
+  background: #f1f3f4 !important; color: var(--hf-testo) !important;
+}
+body.hf-pelle .dropdown-menu > li.disabled > a, body.hf-pelle .dropdown-menu > li > a.disabled { color: #a8abad !important; background: none !important; }
+body.hf-pelle .dropdown-menu > li.divider, body.hf-pelle .dropdown-menu .divider { background: #e3e3e3 !important; margin: 6px 0 !important; height: 1px !important; }
+body.hf-pelle .dropdown-menu .menu-item-icon, body.hf-pelle .dropdown-menu > li > a > .icon { opacity: .85; }
+/* La tendina dei caratteri e delle dimensioni: più ariosa. */
+body.hf-pelle .dropdown-menu.scrollable-menu > li > a { padding-left: 16px !important; }
+body.hf-pelle .combobox .dropdown-menu > li > a { padding-left: 16px !important; }
+body.hf-pelle .combobox .dropdown-menu > li > a.checked, body.hf-pelle .combobox .dropdown-menu > li.selected > a,
+body.hf-pelle .combobox .dropdown-menu > li > a.selected { background: var(--hf-premuto) !important; }
+
+/* I colori come la griglia degli editor web: tondi da 18 con 2 di aria, bordo solo sui chiari. */
+body.hf-pelle .palette-color-ext { padding: 6px 12px !important; }
+/* Dieci tondi per riga, come la griglia dei colori degli editor web. */
+body.hf-pelle .theme-colorpalette { width: 232px !important; }
+body.hf-pelle .theme-colorpalette .palette-color-dynamiccolors { width: 232px !important; }
+body.hf-pelle a.palette-color, body.hf-pelle a.palette-color-effect, body.hf-pelle a.dynamic-empty-color {
+  width: 22px !important; height: 22px !important; padding: 2px !important; border: 0 !important;
+  border-radius: 50% !important; background: transparent !important; box-sizing: border-box !important;
+}
+body.hf-pelle a.palette-color em, body.hf-pelle a.palette-color-effect em, body.hf-pelle a.dynamic-empty-color em {
+  display: block !important; width: 18px !important; height: 18px !important; border: 0 !important; border-radius: 50% !important; overflow: hidden;
+}
+body.hf-pelle a.palette-color span, body.hf-pelle a.palette-color-effect span, body.hf-pelle a.dynamic-empty-color span {
+  display: block !important; width: 18px !important; height: 18px !important; border-radius: 50% !important;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .12); border: 0 !important;
+}
+body.hf-pelle a.palette-color:hover em, body.hf-pelle a.palette-color-effect:hover em { box-shadow: 0 0 0 2px #fff, 0 0 0 3px #747775; }
+body.hf-pelle a.palette-color.selected em, body.hf-pelle a.palette-color-effect.selected em { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--hf-blu); }
+body.hf-pelle .palette-color-caption { font: 500 12px/16px var(--hf-font) !important; color: #444746 !important; padding: 4px 0 !important; }
+
+/* ---------------------------------------------------------------- i dialoghi di ONLYOFFICE */
+/* Tabella, paragrafo, immagine, impostazioni pagina, conteggio parole, link: bianchi,
+   raggio 8, titolo grande a sinistra, bottoni a pillola (il principale blu pieno). */
+body.hf-pelle .asc-window {
+  background: #fff !important; border: 0 !important; border-radius: 8px !important;
+  box-shadow: 0 4px 8px 3px rgba(60, 64, 67, .15), 0 1px 3px rgba(60, 64, 67, .3) !important;
+  font-family: var(--hf-font) !important; color: var(--hf-testo) !important;
+}
+/* La testata resta alta 34 (il corpo comincia lì, in ONLYOFFICE è posizionato a mano). */
+body.hf-pelle .asc-window > .header {
+  background: #fff !important; border: 0 !important; border-radius: 8px 8px 0 0 !important;
+  padding: 10px 48px 0 24px !important; text-align: left !important; line-height: 24px !important;
+}
+body.hf-pelle .asc-window > .header .title {
+  font: 400 18px/24px var(--hf-font) !important; color: var(--hf-testo) !important; text-align: left !important;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+body.hf-pelle .asc-window > .header .tools { top: 6px !important; right: 8px !important; }
+body.hf-pelle .asc-window > .header .tool.close {
+  width: 32px !important; height: 32px !important; border-radius: 50% !important; opacity: .8;
+}
+body.hf-pelle .asc-window > .header .tool.close:hover { background-color: var(--hf-passa) !important; }
+body.hf-pelle .asc-window .body { background: #fff !important; }
+body.hf-pelle .asc-window .footer {
+  background: #fff !important; border: 0 !important; padding: 12px 24px 20px !important;
+  text-align: right !important; border-radius: 0 0 8px 8px !important;
+}
+body.hf-pelle .asc-window .footer .dlg-btn, body.hf-pelle .asc-window .btn.normal.dlg-btn {
+  height: 36px !important; min-width: 72px !important; padding: 0 24px !important; border-radius: 18px !important;
+  font: 500 14px/20px var(--hf-font) !important; letter-spacing: .1px; border: 1px solid #747775 !important;
+  background: #fff !important; color: var(--hf-blu) !important; margin-left: 8px !important; box-shadow: none !important;
+}
+body.hf-pelle .asc-window .footer .dlg-btn:hover { background: rgba(11, 87, 208, .08) !important; }
+body.hf-pelle .asc-window .footer .dlg-btn.primary {
+  background: var(--hf-blu) !important; color: #fff !important; border-color: var(--hf-blu) !important;
+}
+body.hf-pelle .asc-window .footer .dlg-btn.primary:hover { background: #0a4fbd !important; box-shadow: 0 1px 2px rgba(0,0,0,.3), 0 1px 3px 1px rgba(0,0,0,.15) !important; }
+body.hf-pelle .asc-window label, body.hf-pelle .asc-window .input-label, body.hf-pelle .asc-window td,
+body.hf-pelle .asc-window .font-size-normal { font-family: var(--hf-font) !important; }
+body.hf-pelle .asc-window .form-control, body.hf-pelle .asc-window input.form-control,
+body.hf-pelle .asc-window textarea.form-control {
+  border: 1px solid #747775 !important; border-radius: 4px !important; background: #fff !important;
+  font-family: var(--hf-font) !important; color: var(--hf-testo) !important; box-shadow: none !important;
+}
+body.hf-pelle .asc-window .form-control:focus { border-color: var(--hf-blu) !important; box-shadow: inset 0 0 0 1px var(--hf-blu) !important; }
+body.hf-pelle .asc-window .btn-group > .form-control + .btn, body.hf-pelle .asc-window .input-group-btn .btn { border-color: #747775 !important; }
+body.hf-pelle .asc-window .nav-tabs, body.hf-pelle .asc-window .tabs { border-color: #e1e3e1 !important; }
+body.hf-pelle .asc-window .listview, body.hf-pelle .asc-window .treeview { border-color: #c4c7c5 !important; border-radius: 4px !important; }
+body.hf-pelle .modals-mask { background: rgba(32, 33, 36, .4) !important; opacity: 1 !important; }
+/* Le finestre senza titolo (avvisi, conferme): lo stesso bianco, il testo grande. */
+body.hf-pelle .asc-window.alert .body .info-box .text, body.hf-pelle .asc-window.alert .body p {
+  font: 400 14px/20px var(--hf-font) !important; color: #444746 !important;
+}
+
+/* ---------------------------------------------------------------- trova e sostituisci */
+/* La barra «Trova» (Ctrl+F) come la casella degli editor web: in alto a destra, bianca,
+   arrotondata. */
+body.hf-pelle .search-bar, body.hf-pelle .asc-window.search-bar {
+  border-radius: 8px !important; box-shadow: 0 4px 8px 3px rgba(60, 64, 67, .15), 0 1px 3px rgba(60, 64, 67, .3) !important;
+  background: #fff !important; border: 0 !important;
+}
+body.hf-pelle .search-bar .body, body.hf-pelle .search-bar .box { background: #fff !important; }
+body.hf-pelle .search-bar input.form-control { height: 32px !important; border-radius: 4px !important; }
+body.hf-pelle #search-box, body.hf-pelle #left-panel-search { font-family: var(--hf-font) !important; background: #fff !important; }
+
+/* ---------------------------------------------------------------- barre di scorrimento */
+/* Sottili come quelle degli editor web (i pannelli; quelle del foglio le disegna l'editor). */
+body.hf-pelle .ps__rail-y { width: 8px !important; background: transparent !important; }
+body.hf-pelle .ps__rail-x { height: 8px !important; background: transparent !important; }
+body.hf-pelle .ps__thumb-y, body.hf-pelle .ps__rail-y > div { width: 6px !important; right: 1px !important; border-radius: 3px !important; background: #c4c7c5 !important; border: 0 !important; }
+body.hf-pelle .ps__thumb-x, body.hf-pelle .ps__rail-x > div { height: 6px !important; bottom: 1px !important; border-radius: 3px !important; background: #c4c7c5 !important; border: 0 !important; }
+body.hf-pelle ::-webkit-scrollbar { width: 8px; height: 8px; }
+body.hf-pelle ::-webkit-scrollbar-thumb { background: #c4c7c5; border-radius: 4px; }
+body.hf-pelle ::-webkit-scrollbar-track { background: transparent; }
+
+/* ---------------------------------------------------------------- fogli: formula e schede */
+body.hf-pelle-cell #cell-editing-box { background: #fff !important; border-color: #e1e3e1 !important; }
+body.hf-pelle-cell #ce-cell-name, body.hf-pelle-cell #ce-cell-name input {
+  font: 400 13px/22px var(--hf-font) !important; color: var(--hf-testo) !important; border: 0 !important; background: #fff !important;
+}
+body.hf-pelle-cell #ce-func-label { opacity: .7; }
+body.hf-pelle-cell #ce-cell-content { font: 400 13px/20px Roboto, Arial, sans-serif !important; }
+/* Le schede dei fogli: quella aperta azzurra col testo blu, le altre grigie, come gli
+   editor web; «+» e l'elenco dei fogli a sinistra restano quelli di ONLYOFFICE. */
+body.hf-pelle-cell #statusbar { background: var(--hf-fondo) !important; }
+body.hf-pelle-cell #statusbar_bottom > li { border: 0 !important; background: none !important; margin: 0 2px 0 0 !important; box-shadow: none !important; }
+body.hf-pelle-cell #statusbar_bottom > li > span {
+  font: 500 14px/20px var(--hf-font) !important; color: #444746 !important; border: 0 !important;
+  background: transparent !important; border-radius: 0 !important; padding: 5px 16px !important; box-shadow: none !important;
+}
+body.hf-pelle-cell #statusbar_bottom > li:hover > span { background: rgba(68, 71, 70, .08) !important; }
+body.hf-pelle-cell #statusbar_bottom > li.active > span {
+  background: #e1e9f7 !important; color: var(--hf-blu) !important;
+}
+body.hf-pelle-cell #statusbar_bottom > li.active::after, body.hf-pelle-cell #statusbar_bottom > li::before { display: none !important; }
+body.hf-pelle-cell #statusbar_bottom > li > span > .btn-sheet-view { display: none !important; }
+
+/* ---------------------------------------------------------------- presentazioni */
+body.hf-pelle-slide #id_panel_thumbnails, body.hf-pelle-slide #id_thumbnails { background: var(--hf-fondo) !important; }
+
+/* ---------------------------------------------------------------- conteggio parole */
+#hf-conteggio { position: fixed; inset: 0; z-index: 10001; background: rgba(32, 33, 36, .4); display: grid; place-items: center; font-family: var(--hf-font); }
+#hf-conteggio > div { background: #fff; border-radius: 8px; padding: 24px 24px 16px; width: min(360px, calc(100vw - 32px)); box-shadow: var(--hf-ombra); color: var(--hf-testo); }
+#hf-conteggio h2 { font: 400 22px/28px var(--hf-font); margin: 0 0 16px; }
+#hf-conteggio table { width: 100%; border-collapse: collapse; font: 400 14px/20px var(--hf-font); }
+#hf-conteggio td { padding: 6px 0; border-bottom: 1px solid #e3e3e3; }
+#hf-conteggio td + td { text-align: right; font-variant-numeric: tabular-nums; }
+#hf-conteggio .hf-fine { text-align: right; margin-top: 20px; }
+
+/* ---------------------------------------------------------------- finestre strette */
+/* Sotto i 1180 px «Presentazione» diventa un tondo con l'icona (come negli editor web) e i
+   menu stringono il passo: la riga dei menu non deve finire sotto i bottoni di destra. */
+@media (max-width: 1180px) {
+  .hf-presenta { width: 40px; height: 40px; padding: 0; justify-content: center; gap: 0; margin-left: 0; }
+  .hf-presenta span { display: none; }
+  :where(#loading-mask:not(.hf-finta), #hf-scheletro) > .sktoolbar:not(#sktoolbar-pdf) + .placeholder::after {
+    background:
+      no-repeat right 0 top 0 / 148px 40px var(--sk-condividi),
+      no-repeat right 156px top 0 / 40px 40px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Ccircle cx='20' cy='20' r='19.5' fill='none' stroke='%23747775'/%3E%3Cpath transform='translate(10 10) scale(.8333)' fill='%231f1f1f' d='M10 8.64L15.27 12 10 15.36V8.64M8 5v14l11-7L8 5z'/%3E%3C/svg%3E"),
+      no-repeat right 212px top 8px / 24px 24px var(--sk-commenti),
+      no-repeat right 260px top 8px / 24px 24px var(--sk-storia);
+  }
+}
+@media (max-width: 1100px) {
+  #hf-menu > button { padding: 2px 5px; }
+}

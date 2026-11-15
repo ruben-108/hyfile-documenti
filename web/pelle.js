@@ -31,23 +31,182 @@
   var SORGENTE = 'https://github.com/ruben-108/hyfile-documenti';
   var ONLYOFFICE_SORGENTE = 'https://github.com/ONLYOFFICE/DocumentServer';
 
+  /* ------------------------------------------------------------------ il caricamento */
+  // Mai l'interfaccia di ONLYOFFICE mentre si carica (SPEC §19.6). pelle.css, che sta nel
+  // <head>, ridisegna dal primo fotogramma lo scheletro di caricamento di ONLYOFFICE
+  // (#loading-mask) come quello di un editor web: testata, barra a pillola, foglio (la
+  // griglia nei fogli, miniature e diapositiva nelle presentazioni), con le misure della
+  // pelle finita. ONLYOFFICE però lo toglie appena ha montato la sua barra, e da lì si
+  // vedrebbe la sua interfaccia per qualche secondo: lo scheletro allora qui si prende per
+  // sé (cambia id, e a ONLYOFFICE resta un segnaposto vuoto da togliere) e resta sopra
+  // tutto finché la pelle non è costruita. Poi copre solo il foglio, finché il documento
+  // non è disegnato. Le fasi stanno sul body: niente → hf-pronta → hf-documento.
+  // Se la pelle si rompe, o dopo 25 secondi, si scopre ONLYOFFICE com'è (hf-ripiego):
+  // mai una pagina ferma.
+  var TEMPI = { script: ora() };
+  function ora() { return Math.round(window.performance && performance.now ? performance.now() : Date.now()); }
+  var TIPO_URL = /spreadsheeteditor/.test(location.pathname) ? 'cell' : /presentationeditor/.test(location.pathname) ? 'slide' : 'word';
+  var scheletro = null;
+  var FASE = { pronta: false, documento: false, ripiego: false };
+
+  function prendiScheletro() {
+    var m = document.getElementById('loading-mask');
+    if (m && !m.classList.contains('hf-finta')) {
+      m.id = 'hf-scheletro';
+      var finta = document.createElement('div');
+      finta.id = 'loading-mask';
+      finta.className = 'hf-finta';
+      m.parentNode.insertBefore(finta, m);
+      scheletro = m;
+    } else {
+      // Senza lo scheletro di ONLYOFFICE (un'altra versione, o già tolto): uno nostro.
+      scheletro = document.createElement('div');
+      scheletro.id = 'hf-scheletro';
+      scheletro.innerHTML = '<div class="brendpanel"></div><div class="sktoolbar"></div>' +
+        (TIPO_URL === 'cell' ? '<div class="skformula"></div>' : '') + '<div class="placeholder"></div>';
+      document.body.appendChild(scheletro);
+    }
+    scheletro.classList.add('hf-sk', 'hf-sk-' + TIPO_URL);
+    document.body.classList.add('hf-tipo-' + TIPO_URL);
+  }
+  function togliScheletro() {
+    if (!scheletro) return;
+    var s = scheletro;
+    scheletro = null;
+    s.classList.add('hf-via');
+    setTimeout(function () { s.remove(); }, 180);
+  }
+
+  /** La pelle è costruita: testata e barra vere al posto di quelle dello scheletro. */
+  function scopri() {
+    if (FASE.pronta) return;
+    FASE.pronta = true;
+    TEMPI.pronta = ora();
+    document.body.classList.add('hf-pronta');
+    manda({ tipo: 'pronta' });
+    mandaPosto();
+  }
+  /** Il documento è disegnato: via anche il foglio dello scheletro. */
+  function documentoPronto() {
+    if (FASE.documento) return;
+    FASE.documento = true;
+    TEMPI.documento = ora();
+    document.body.classList.add('hf-documento');
+    togliScheletro();
+  }
+  /** ONLYOFFICE com'è: la pelle non c'è (o è a metà e si toglie), ma si lavora. */
+  function ripiego(perche, errore) {
+    if (FASE.ripiego || (FASE.pronta && FASE.documento)) return;
+    FASE.ripiego = true;
+    TEMPI.ripiego = ora();
+    TEMPI.perche = perche;
+    if (errore && window.console) console.warn('pelle-hyfile: ripiego', perche, errore);
+    prova(smonta);
+    document.body.classList.add('hf-pronta', 'hf-documento', 'hf-ripiego');
+    togliScheletro();
+    if (!FASE.pronta) { FASE.pronta = true; manda({ tipo: 'pronta' }); }
+  }
+  setTimeout(function () { if (!FASE.pronta || !FASE.documento) ripiego('tempo'); }, 25000);
+
+  /* ------------------------------------------------------------------ parlare con HyFile */
+  // Il protocollo con la pagina /editor/<id> di HyFile (SPEC §19.6): la pelle dice quando
+  // è pronta e dov'è il posto in alto a destra che tiene vuoto per HyFile (i quadratini
+  // della suite, la campanella, il profilo); la pagina dice quanto spazio le serve.
+  var POSTO = { larghezza: 124 };
+  function manda(o) {
+    o.hyfile = 'pelle';
+    try { if (window.parent && window.parent !== window) window.parent.postMessage(o, '*'); } catch (e) { /* nessuna pagina sopra */ }
+  }
+  function rettangoloPosto() {
+    var p = document.getElementById('hf-posto-hyfile');
+    if (p && FASE.pronta && !FASE.ripiego) {
+      var r = p.getBoundingClientRect();
+      return { x: r.left, y: r.top, larghezza: r.width, altezza: r.height };
+    }
+    // Lo scheletro ha il posto nello stesso punto della testata vera.
+    return { x: window.innerWidth - POSTO.larghezza, y: 10, larghezza: POSTO.larghezza, altezza: 40 };
+  }
+  var ultimoPosto = '';
+  function mandaPosto(sempre) {
+    var r = rettangoloPosto();
+    var o = { tipo: 'posto', x: Math.round(r.x), y: Math.round(r.y), larghezza: Math.round(r.larghezza), altezza: Math.round(r.altezza) };
+    var k = JSON.stringify(o);
+    if (!sempre && k === ultimoPosto) return;
+    ultimoPosto = k;
+    manda(o);
+  }
+  window.addEventListener('message', function (e) {
+    if (!window.parent || window.parent === window || e.source !== window.parent) return;
+    var d = e.data;
+    if (!d || typeof d !== 'object' || d.hyfile !== 'pagina') return;
+    if (d.tipo === 'posto') {
+      var l = Math.round(Number(d.larghezza));
+      if (!(l >= 0 && l <= 480)) return;
+      POSTO.larghezza = l;
+      document.documentElement.style.setProperty('--hf-posto', l + 'px');
+      var p = document.getElementById('hf-posto-hyfile');
+      if (p) p.style.width = l + 'px';
+      prova(function () { document.getElementById('hf-titolo').allarga(); });
+      prova(adatta);
+      mandaPosto(true);
+    } else if (d.tipo === 'chiedi-posto') {
+      mandaPosto(true);
+    } else if (d.tipo === 'luogo') {
+      var t = String(d.testo || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+      LUOGO = t || 'in HyFile';
+      if (statoAdesso === 'salvato') mettiStato('salvato');
+    }
+  });
+  window.addEventListener('resize', function () { setTimeout(function () { mandaPosto(); }, 80); });
+
   /* ------------------------------------------------------------------ attesa */
-  function quandoPronto(fai) {
+  // La pelle si costruisce appena ONLYOFFICE ha disegnato la sua barra («app:face»), non a
+  // documento caricato («app:ready»): così la testata vera arriva prima. Quello che nasce
+  // solo col documento (i menu dei colori, il pannello a destra…) si sistema a «document:ready».
+  function quandoPronto() {
     var giri = 0;
-    (function prova() {
+    (function guarda() {
       var APP = window.DE || window.SSE || window.PE;
       if (APP && window.Common && Common.NotificationCenter && window.$) {
-        var pronto = false;
-        Common.NotificationCenter.on('app:ready', function () {
-          if (pronto) return;
-          pronto = true;
-          setTimeout(function () { avvia(APP); }, 0);
+        var costruita = false;
+        var costruisci = function () {
+          if (costruita || FASE.ripiego) return;
+          costruita = true;
+          TEMPI.faccia = ora();
+          setTimeout(function () {
+            try { avvia(APP); } catch (e) { ripiego('errore', e); return; }
+            if (FASE.ripiego) return;
+            scopri();
+            if (G.documentoPronto) prova(finisci);
+          }, 0);
+        };
+        Common.NotificationCenter.on('app:face', costruisci);
+        Common.NotificationCenter.on('app:ready', function () { TEMPI.app = ora(); costruisci(); });
+        Common.NotificationCenter.on('document:ready', function () {
+          G.documentoPronto = true;
+          TEMPI.docpronto = ora();
+          if (FASE.pronta && !FASE.ripiego) setTimeout(function () { prova(finisci); }, 0);
         });
+        // La barra c'è già (la pelle è arrivata tardi): subito.
+        if (window.editor_elements_prepared && prova(function () { return APP.getController('Toolbar').toolbar.$el.find('[id^=slot-]').length; }, 0)) costruisci();
         return;
       }
-      if (giri++ < 400) setTimeout(prova, 25);
+      if (giri++ < 800) setTimeout(guarda, 25);
     })();
-    void fai;
+  }
+  // Un errore di ONLYOFFICE prima della pelle (un documento che non si apre) non deve
+  // restare sotto lo scheletro: si scopre tutto, e si legge.
+  function guardaFinestre() {
+    if (!window.MutationObserver) return;
+    var mo = new MutationObserver(function () {
+      if (FASE.pronta && FASE.documento) { mo.disconnect(); return; }
+      var w = document.querySelector('body > .asc-window.modal, body > .asc-window.alert');
+      if (w && w.offsetParent !== null && !FASE.ripiego) {
+        if (!FASE.pronta) ripiego('finestra');
+        else documentoPronto();
+      }
+    });
+    mo.observe(document.body, { childList: true });
   }
 
   /* ------------------------------------------------------------------ icone */
@@ -99,6 +258,9 @@
     presenta: 'M10 8.64L15.27 12 10 15.36V8.64M8 5v14l11-7L8 5z',
     piu: 'M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z',
     verticale: 'M8 19h3v4h2v-4h3l-4-4-4 4zm8-14h-3V1h-2v4H8l4 4 4-4zM4 11v2h16v-2H4z',
+    indietro: 'M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z',
+    su: 'M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z',
+    giu2: 'M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z',
   };
   function svg(nome, classe) {
     var d = ICONE[nome] || '';
@@ -258,6 +420,7 @@
       var spunta = v.on ? vale(v.on, false) : false;
       var r = el('div', { class: 'hf-voce' + (ok ? '' : ' spenta'), role: 'menuitem' });
       r.innerHTML = (conIcone ? '<span class="hf-ico">' + (spunta ? svg('spunta') : v.ico ? svg(v.ico) : '') + '</span>' : '') +
+        (v.colore ? '<span class="hf-pallino" style="background:' + esc(v.colore) + '"></span>' : '') +
         '<span class="hf-testo">' + esc(vale(v.t, '')) + '</span>' +
         (v.k ? '<span class="hf-tasti">' + esc(v.k) + '</span>' : '') +
         (v.sub || v.oo ? svg('destra', 'hf-freccia') : '');
@@ -297,7 +460,7 @@
   document.addEventListener('mousedown', function (e) {
     if (!pila.length) return;
     for (var i = 0; i < pila.length; i++) if (pila[i].pop.contains(e.target)) return;
-    if (e.target.closest && e.target.closest('#hf-menu > button, .hf-tendina, .hf-bottone')) return;
+    if (e.target.closest && e.target.closest('#hf-menu > button, .hf-tendina, .hf-bottone, #hf-condividi-freccia, .hf-piu-gente')) return;
     if (e.target.closest && e.target.closest('.dropdown-menu')) { chiudiMenu(0 + 0 || 0); return; }
     chiudiMenu(0);
   }, true);
@@ -345,6 +508,10 @@
   }
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && pila.length) { chiudiMenu(0); rimettiFuoco(); e.stopPropagation(); e.preventDefault(); return; }
+    if (e.key === 'Escape') {
+      var d = document.querySelector('#hf-conteggio, #hf-legale');
+      if (d) { d.remove(); rimettiFuoco(); e.stopPropagation(); e.preventDefault(); return; }
+    }
     if (e.altKey && (e.key === '/' || e.code === 'Slash')) { e.preventDefault(); cercaNeiMenu(); return; }
     if (pila.length && tastiMenu(e)) { e.preventDefault(); e.stopPropagation(); }
   }, true);
@@ -451,9 +618,38 @@
     var stato = el('span', { class: 'hf-stato', id: 'hf-stato', title: 'Le modifiche si salvano da sole in HyFile' });
     riga.appendChild(stato);
     centro.appendChild(riga);
+    centro.appendChild(barraDeiMenu());
+    t.appendChild(centro);
+
+    // A destra, come negli editor web: chi c'è, cronologia, commenti, Condividi; poi il posto
+    // di HyFile (quadratini, campanella, profilo), che la pagina disegna sopra l'editor.
+    var destra = el('div', { class: 'hf-destra' });
+    destra.appendChild(el('div', { id: 'hf-gente' }));
+    if (o.storia) {
+      var bs = el('button', { type: 'button', class: 'hf-tondo', id: 'hf-bottone-storia', 'data-hf-tip': 'Cronologia delle versioni', 'aria-label': 'Cronologia delle versioni' }, svg('storia'));
+      bs.addEventListener('click', o.storia);
+      destra.appendChild(bs);
+    }
+    if (o.commenti) {
+      var bc = el('button', { type: 'button', class: 'hf-tondo', id: 'hf-bottone-commenti', 'data-hf-tip': 'Commenti', 'aria-label': 'Commenti' }, svg('commenti'));
+      bc.addEventListener('click', o.commenti);
+      destra.appendChild(bc);
+    }
+    if (o.extra) { var ex = o.extra(); if (ex) destra.appendChild(ex); }
+    if (o.condividi) destra.appendChild(condividi(o.condividi));
+    var posto = el('div', { id: 'hf-posto-hyfile', 'aria-hidden': 'true' });
+    posto.style.width = POSTO.larghezza + 'px';
+    destra.appendChild(posto);
+    t.appendChild(destra);
+    if (window.ResizeObserver) new ResizeObserver(function () { mandaPosto(); }).observe(posto);
+    return t;
+  }
+
+  /** File, Modifica, Visualizza…: un menu che qui non avrebbe voci (Inserisci, per chi
+   *  guarda soltanto) non si mostra. */
+  function barraDeiMenu() {
     var menu = el('div', { id: 'hf-menu', role: 'menubar' });
     MENU.forEach(function (m) {
-      // Un menu che qui non avrebbe voci (Inserisci, per chi guarda soltanto) non si mostra.
       if (!visibili(m.voci).length) return;
       var b = el('button', { type: 'button', role: 'menuitem' });
       b.textContent = m.t;
@@ -467,63 +663,131 @@
       });
       menu.appendChild(b);
     });
-    centro.appendChild(menu);
-    t.appendChild(centro);
-
-    var destra = el('div', { class: 'hf-destra' });
-    destra.appendChild(el('div', { id: 'hf-gente' }));
-    if (o.storia) {
-      var bs = el('button', { type: 'button', class: 'hf-tondo', title: 'Cronologia delle versioni' }, svg('storia'));
-      bs.addEventListener('click', o.storia);
-      destra.appendChild(bs);
-    }
-    if (o.commenti) {
-      var bc = el('button', { type: 'button', class: 'hf-tondo', title: 'Commenti' }, svg('commenti'));
-      bc.addEventListener('click', o.commenti);
-      destra.appendChild(bc);
-    }
-    if (o.extra) { var ex = o.extra(); if (ex) destra.appendChild(ex); }
-    if (o.condividi) {
-      var cd = el('button', { type: 'button', id: 'hf-condividi' }, svg('lucchetto') + '<span>Condividi</span>');
-      cd.addEventListener('click', o.condividi);
-      destra.appendChild(cd);
-    }
-    var av = el('div', { class: 'hf-avatar', title: o.utente || '' });
-    av.textContent = iniziali(o.utente);
-    av.style.background = coloreDi(o.utenteId || o.utente);
-    destra.appendChild(av);
-    t.appendChild(destra);
-    return t;
+    return menu;
   }
 
+  /** Condividi diviso in due, come negli editor web: la parte grande apre il dialogo di
+   *  HyFile, la freccina «Copia link» (lo copia la pagina: è il suo indirizzo). */
+  function condividi(apri) {
+    var box = el('div', { id: 'hf-condividi-box', role: 'group' });
+    var cd = el('button', { type: 'button', id: 'hf-condividi' }, svg('lucchetto') + '<span>Condividi</span>');
+    cd.addEventListener('click', apri);
+    var fr = el('button', { type: 'button', id: 'hf-condividi-freccia', 'aria-label': 'Altre opzioni di condivisione', 'data-hf-tip': 'Copia link' }, svg('giu'));
+    fr.addEventListener('mousedown', function (e) { e.preventDefault(); });
+    fr.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (fr.classList.contains('aperto')) { chiudiMenu(0); return; }
+      var pop = apriMenu([
+        { t: 'Copia link', ico: 'link', f: function () { manda({ tipo: 'copia-link' }); } },
+      ], fr, 0, 'sotto');
+      // Allineato a destra della freccina, come il menu degli editor web.
+      if (pop) { var r = fr.getBoundingClientRect(); pop.style.left = Math.max(4, r.right - pop.offsetWidth) + 'px'; }
+    });
+    box.appendChild(cd);
+    box.appendChild(fr);
+    return box;
+  }
+
+  // Dove si salva: «in HyFile» di serie, «sul LaCie» se la pagina lo dice (messaggio «luogo»).
+  var LUOGO = 'in HyFile';
+  var statoAdesso = '';
+  function statoDiSerie() { return G.modifica ? 'salvato' : G.commenta ? 'commento' : 'sola'; }
   function mettiStato(s) {
+    statoAdesso = s;
     var e = document.getElementById('hf-stato');
     if (!e) return;
+    e.title = 'Le modifiche si salvano da sole ' + LUOGO;
     if (s === 'salva') e.innerHTML = svg('gira') + '<span>Salvataggio…</span>';
-    else if (s === 'salvato') e.innerHTML = svg('nuvola') + '<span>Salvato in HyFile</span>';
+    else if (s === 'salvato') e.innerHTML = svg('nuvola') + '<span>Salvato ' + esc(LUOGO) + '</span>';
     else if (s === 'sola') e.innerHTML = svg('occhio') + '<span>Solo visualizzazione</span>';
+    else if (s === 'commento') e.innerHTML = svg('commento') + '<span>Puoi commentare</span>';
     else if (s === 'offline') e.innerHTML = '<span>Senza connessione: le modifiche partono appena torna</span>';
     else e.innerHTML = '';
   }
 
+  /* ------------------------------------------------------------------ chi c'è */
+  // Le facce degli altri, a sinistra della cronologia come negli editor web: un tondo con
+  // l'iniziale e l'anello del colore del suo cursore (lo stesso che ONLYOFFICE disegna nel
+  // documento), il nome al passaggio. Al massimo tre, poi «+N» con l'elenco. Il clic porta
+  // dove sta scrivendo (solo nei documenti: è l'unico editor che lo sa fare).
+  var GENTE = [];
+  function coloreCursore(u) {
+    var col = prova(function () { return u.asc_getColor(); }, '');
+    if (typeof col === 'number') col = '#' + ('000000' + col.toString(16)).slice(-6);
+    return col || coloreDi(prova(function () { return u.asc_getIdOriginal(); }, ''));
+  }
   function mettiGente(utenti) {
     var box = document.getElementById('hf-gente');
     if (!box) return;
-    box.innerHTML = '';
     var io = G.utenteId, visti = {};
     var lista = Array.isArray(utenti) ? utenti : (utenti && typeof utenti === 'object' ? Object.keys(utenti).map(function (k) { return utenti[k]; }) : []);
+    GENTE = [];
     lista.forEach(function (u) {
       var id = prova(function () { return u.asc_getIdOriginal(); }, '') || '';
       var nome = prova(function () { return u.asc_getUserName(); }, '') || '';
-      var vivo = prova(function () { return !u.asc_getView(); }, true);
-      if (!id || id === io || visti[id] || !vivo) return;
+      var connesso = prova(function () { return u.asc_getState ? u.asc_getState() !== false : true; }, true);
+      if (!id || id === io || visti[id] || !connesso) return;
       visti[id] = true;
-      var a = el('div', { class: 'hf-avatar', title: nome + ' sta modificando' });
-      a.textContent = iniziali(nome);
-      a.style.background = prova(function () { return u.asc_getColor(); }, '') || coloreDi(id);
-      box.appendChild(a);
+      GENTE.push({ id: id, conn: prova(function () { return u.asc_getId(); }, ''), nome: nome || 'Ospite', colore: coloreCursore(u),
+        guarda: prova(function () { return !!u.asc_getView(); }, false) });
+    });
+    box.innerHTML = '';
+    var mostra = GENTE.slice(0, 3);
+    mostra.forEach(function (p) { box.appendChild(faccia(p)); });
+    if (GENTE.length > mostra.length) {
+      var piu = el('button', { type: 'button', class: 'hf-faccia hf-piu-gente', 'data-hf-tip': 'Tutti quelli che hanno aperto il documento' });
+      piu.textContent = '+' + (GENTE.length - mostra.length);
+      piu.addEventListener('mousedown', function (e) { e.preventDefault(); });
+      piu.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (piu.classList.contains('aperto')) { chiudiMenu(0); return; }
+        var pop = apriMenu(GENTE.map(function (p) {
+          return { t: p.nome + (p.guarda ? ' (sta guardando)' : ''), colore: p.colore, f: function () { vaiDa(p); } };
+        }), piu, 0, 'sotto');
+        if (pop) pop.classList.add('hf-pop-gente');
+      });
+      box.appendChild(piu);
+    }
+    prova(adatta);
+  }
+  function faccia(p) {
+    var a = el('button', { type: 'button', class: 'hf-faccia', 'aria-label': p.nome,
+      'data-hf-tip': p.nome + (p.guarda ? ' sta guardando' : '') });
+    a.textContent = iniziali(p.nome);
+    a.style.setProperty('--hf-anello', p.colore);
+    a.style.background = p.colore;
+    a.addEventListener('mousedown', function (e) { e.preventDefault(); });
+    a.addEventListener('click', function () { vaiDa(p); });
+    return a;
+  }
+  function vaiDa(p) {
+    prova(function () {
+      if (G.api.asc_scrollToUserCursor && p.conn) { G.api.asc_scrollToUserCursor(p.conn); rimettiFuoco(); }
     });
   }
+
+  /* ------------------------------------------------------------------ i suggerimenti */
+  // Il nome sotto un bottone, scuro e piccolo come negli editor web (non il «title» del
+  // browser, che arriva tardi e ha un altro aspetto).
+  var tip = null, tipTimer = null;
+  function mostraTip(bersaglio) {
+    var testo = bersaglio.getAttribute('data-hf-tip');
+    if (!testo || bersaglio.classList.contains('aperto')) return;
+    if (!tip) { tip = el('div', { class: 'hf-tip', role: 'tooltip' }); document.body.appendChild(tip); }
+    tip.textContent = testo;
+    tip.style.display = 'block';
+    var r = bersaglio.getBoundingClientRect();
+    var x = r.left + r.width / 2 - tip.offsetWidth / 2;
+    tip.style.left = Math.max(4, Math.min(window.innerWidth - tip.offsetWidth - 4, x)) + 'px';
+    tip.style.top = (r.bottom + 6) + 'px';
+  }
+  function nascondiTip() { clearTimeout(tipTimer); if (tip) tip.style.display = 'none'; }
+  document.addEventListener('mouseover', function (e) {
+    var b = e.target.closest && e.target.closest('[data-hf-tip]');
+    nascondiTip();
+    if (b) tipTimer = setTimeout(function () { mostraTip(b); }, 450);
+  });
+  document.addEventListener('mousedown', nascondiTip, true);
 
   /* ------------------------------------------------------------------ la barra */
   function stampa() {
@@ -590,6 +854,27 @@
     return b;
   }
 
+  /** Per chi può solo commentare: nella barra il bottone per aggiungere un commento. */
+  function barraCommenti(b) {
+    if (!G.commenta) return;
+    b.appendChild(sep());
+    b.appendChild(gruppo([bottonePelle('commento', 'Aggiungi commento (Ctrl+Alt+M)', function () { aggiungiCommento(); })], 'commenta'));
+  }
+  /** In fondo alla barra la modalità, come negli editor web: per chi commenta «Commento». */
+  function chipCommento() {
+    var m = tendina('Commento', '', function () {
+      return [
+        { t: 'Commento', ico: 'commento', on: function () { return true; }, f: function () {} },
+        { t: 'Per modificare chiedi a chi te l’ha condiviso', ok: function () { return false; } },
+      ];
+    }, 'Modalità');
+    m.id = 'hf-modalita';
+    m.insertAdjacentHTML('afterbegin', svg('commento'));
+    var g = gruppo([el('div', { class: 'hf-spinta' }), m], 'modalita');
+    g.style.marginLeft = 'auto';
+    return g;
+  }
+
   /** Quando la barra non ci sta, gli ultimi gruppi vanno nel «⋮». */
   function adatta() {
     var barra = document.getElementById('hf-barra');
@@ -634,10 +919,13 @@
     G.api = main.api;
     G.opz = opz;
     G.modifica = !!opz.isEdit;
+    // Chi può solo commentare (permissions.edit=false, comment=true): ONLYOFFICE lo apre in
+    // «modifica limitata ai commenti». Non è «Solo visualizzazione»: i commenti si scrivono.
+    G.commenta = !G.modifica && !!opz.canComments && !!(opz.isRestrictedEdit || opz.canCoAuthoring);
     G.utenteId = opz.user && opz.user.id;
     G.tb = prova(function () { return APP.getController('Toolbar').toolbar; });
     var editor = EDITOR[G.TIPO];
-    if (!editor || !G.tb) return;
+    if (!editor || !G.tb) throw new Error('manca la barra di ONLYOFFICE');
 
     document.body.classList.add('hf-pelle', 'hf-pelle-' + G.TIPO);
     prova(function () { Common.UI.Themes.setTheme('theme-white'); });
@@ -649,11 +937,9 @@
     var testa = testata({
       titolo: doc.title || prova(function () { return G.api.asc_getDocumentName(); }, '') || '',
       rinomina: !!opz.canRename && G.modifica,
-      utente: opz.user && (opz.user.fullname || opz.user.name),
-      utenteId: G.utenteId,
       condividi: opz.canRequestSharingSettings ? function () { Common.Gateway.requestSharingSettings(); } : null,
-      storia: opz.canUseHistory ? function () { Common.NotificationCenter.trigger('collaboration:history'); } : null,
-      commenti: opz.canViewComments || opz.canComments ? function () { pannello('comments'); } : null,
+      storia: opz.canUseHistory ? apriStoria : null,
+      commenti: opz.canViewComments || opz.canComments ? apriCommenti : null,
       extra: editor.testa || null,
     });
     var barra = el('div', { id: 'hf-barra', role: 'toolbar' });
@@ -683,52 +969,135 @@
     }, true);
     var gAltro = gruppo([altro], 'altro'); gAltro.classList.add('hf-fisso');
     barra.appendChild(gAltro);
-    if (editor.coda) { var cd = editor.coda(); if (cd) { cd.classList.add('hf-fisso'); barra.appendChild(cd); } }
+    var cd = editor.coda ? editor.coda() : null;
+    if (!cd && G.commenta) cd = chipCommento();
+    if (cd) { cd.classList.add('hf-fisso'); barra.appendChild(cd); }
+    // Il «⌃» in fondo: nasconde titolo e menu (resta la barra), come negli editor web.
+    // La scelta resta in questo browser.
+    var compatta = bottonePelle('su', 'Nascondi i menu (Ctrl+Maiusc+F)', function () { compattaTestata(!document.body.classList.contains('hf-compatta')); });
+    compatta.id = 'hf-compatta';
+    var gComp = gruppo([el('div', { class: 'hf-sep hf-sep-fissa' }), compatta], 'compatta');
+    gComp.classList.add('hf-fisso');
+    if (!cd) gComp.style.marginLeft = 'auto';
+    barra.appendChild(gComp);
 
-    altezza(64 + 40 + 8);
+    altezza(ALTO);
+    prova(function () { if (localStorage.getItem('hf-pelle-compatta') === '1') compattaTestata(true); });
     prova(function () { document.getElementById('hf-titolo').allarga(); });
     prova(function () { editor.dopo && editor.dopo(); });
-    // Il pannello a destra chiuso, come negli editor web, finché chi scrive non lo apre da
-    // Visualizza: da lì in poi vale la sua scelta (ONLYOFFICE la ricorda).
-    prova(function () {
-      var chiave = { word: 'de', cell: 'sse', slide: 'pe' }[G.TIPO] + '-hidden-rightmenu';
-      var ch = c('ViewTab').view.chRightMenu;
-      if (G.modifica && ch && Common.localStorage.getItem(chiave) === null && spuntata(ch)) ch.setValue(false);
-    });
+    prova(chiudiPannelloDestro);
 
     // Salvataggio, persone, titolo.
-    mettiStato(G.modifica ? 'salvato' : 'sola');
+    mettiStato(statoDiSerie());
     prova(function () {
       G.api.asc_registerCallback('asc_onStartAction', function (tipo, id) {
         if (id === Asc.c_oAscAsyncAction.Save || id === Asc.c_oAscAsyncAction.ForceSaveButton) mettiStato('salva');
       });
       G.api.asc_registerCallback('asc_onEndAction', function (tipo, id) {
-        if (id === Asc.c_oAscAsyncAction.Save || id === Asc.c_oAscAsyncAction.ForceSaveButton) setTimeout(function () { mettiStato(G.modifica ? 'salvato' : 'sola'); }, 400);
+        if (id === Asc.c_oAscAsyncAction.Save || id === Asc.c_oAscAsyncAction.ForceSaveButton) setTimeout(function () { mettiStato(statoDiSerie()); }, 400);
       });
       G.api.asc_registerCallback('asc_onCoAuthoringDisconnect', function () { mettiStato('offline'); });
       G.api.asc_registerCallback('asc_onMeta', function (meta) {
         var t = document.getElementById('hf-titolo');
         if (t && meta && meta.title && document.activeElement !== t) { t.value = senzaEstensione(meta.title); t.allarga && t.allarga(); }
       });
-      var aggiorna = function () { mettiGente(prova(function () { return Object.values(G.api.asc_getAuthors ? G.api.asc_getAuthors() : {}); }, [])); };
       G.api.asc_registerCallback('asc_onAuthParticipantsChanged', function (u) { mettiGente(u); });
+      Common.NotificationCenter.on('pelle:commenti', function (aperto) { segnaCommenti(!!aperto); });
+      // Il pannello di ONLYOFFICE si chiude anche dalla sua ×: il bottone lo segue.
+      prova(function () { lm().leftMenu.btnComments.on('toggle', function () { if (!window.pelleCommenti) segnaCommenti(); }); });
       G.api.asc_registerCallback('asc_onParticipantsChanged', function (u) { mettiGente(u); });
-      void aggiorna;
     });
     var tAdatta = null;
-    window.addEventListener('resize', function () { clearTimeout(tAdatta); tAdatta = setTimeout(function () { adatta(); prova(function () { document.getElementById('hf-titolo').allarga(); }); }, 60); });
+    window.addEventListener('resize', function () { clearTimeout(tAdatta); tAdatta = setTimeout(function () { adatta(); prova(function () { document.getElementById('hf-titolo').allarga(); }); mandaPosto(); }, 60); });
     setTimeout(adatta, 50);
-    Common.NotificationCenter.on('document:ready', function () { setTimeout(adatta, 50); prova(function () { editor.pronto && editor.pronto(); }); });
+    G.editor = editor;
+  }
+
+  /** Quello che nasce col documento: i menu della barra, il pannello a destra, le facce. */
+  function finisci() {
+    if (G.finito) return;
+    G.finito = true;
+    var editor = G.editor || {};
+    prova(function () { editor.pronto && editor.pronto(); });
+    prova(rifaiMenu);
+    prova(chiudiPannelloDestro);
+    prova(function () { mettiGente(G.api.asc_getAuthors ? G.api.asc_getAuthors() : null); });
+    adatta();
+    // Il documento è disegnato al giro dopo «document:ready».
+    setTimeout(function () {
+      documentoPronto();
+      prova(rifaiDopoStoria);
+    }, 60);
+    // commenti.js può aver riaperto il suo pannello prima che la pelle ascoltasse: si allinea.
+    setTimeout(function () {
+      prova(function () { var pc = window.pelleCommenti; if (pc && pc.aperti) segnaCommenti(!!pc.aperti()); });
+    }, 800);
+  }
+  // Il pannello a destra chiuso, come negli editor web, finché chi scrive non lo apre da
+  // Visualizza: da lì in poi vale la sua scelta (ONLYOFFICE la ricorda).
+  function chiudiPannelloDestro() {
+    var chiave = { word: 'de', cell: 'sse', slide: 'pe' }[G.TIPO] + '-hidden-rightmenu';
+    var ch = c('ViewTab').view.chRightMenu;
+    if (G.modifica && ch && Common.localStorage.getItem(chiave) === null && spuntata(ch)) ch.setValue(false);
+  }
+  /** I menu in alto ricontati: qualcuno (Inserisci, Formato) ha voci che nascono col documento. */
+  function rifaiMenu() {
+    var vecchio = document.getElementById('hf-menu');
+    if (!vecchio) return;
+    var nuovo = barraDeiMenu();
+    vecchio.parentNode.replaceChild(nuovo, vecchio);
+  }
+
+  /** Titolo e menu nascosti (il «⌃» in fondo alla barra) o di nuovo in vista. */
+  function compattaTestata(si) {
+    document.body.classList.toggle('hf-compatta', !!si);
+    var b = document.getElementById('hf-compatta');
+    if (b) {
+      b.innerHTML = svg(si ? 'giu2' : 'su');
+      var t = si ? 'Mostra i menu (Ctrl+Maiusc+F)' : 'Nascondi i menu (Ctrl+Maiusc+F)';
+      b.title = t; b.setAttribute('aria-label', t);
+    }
+    try { localStorage.setItem('hf-pelle-compatta', si ? '1' : '0'); } catch (e) { /* senza: vale per questa volta */ }
+    altezza(si ? 40 + 16 : ALTO);
+    mandaPosto();
+    setTimeout(adatta, 30);
+  }
+  document.addEventListener('keydown', function (e) {
+    if (FASE.pronta && !FASE.ripiego && (e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'F' || e.key === 'f')) {
+      e.preventDefault(); e.stopPropagation();
+      compattaTestata(!document.body.classList.contains('hf-compatta'));
+    }
+  }, true);
+
+  /** Tolta la pelle a metà (ripiego): ONLYOFFICE torna com'era. */
+  function smonta() {
+    ['hf-testa', 'hf-barra'].forEach(function (id) { var e = document.getElementById(id); e && e.remove(); });
+    Array.prototype.forEach.call(document.querySelectorAll('.hf-pop'), function (e) { e.remove(); });
+    var p = document.querySelector('.hf-parcheggio');
+    p && p.classList.remove('hf-parcheggio');
+    document.body.classList.remove('hf-pelle', 'hf-pelle-word', 'hf-pelle-cell', 'hf-pelle-slide');
+    if (G.altezza) prova(function () {
+      G.altezza.forEach(function (x) { delete x.p.height; x.p.height = x.h; });
+      G.altezza = null;
+      var vp = G.APP.getController('Viewport');
+      (vp.viewport || vp.getView('Viewport')).vlayout.doLayout();
+      Common.NotificationCenter.trigger('layout:changed', 'toolbar');
+    });
   }
 
   /** L'altezza della parte in alto (testata + barra), che ONLYOFFICE rispetta nel suo layout. */
+  var ALTO = 64 + 40 + 8;
   function altezza(h) {
     prova(function () {
       var vp = G.APP.getController('Viewport');
       var v = vp.viewport || vp.getView('Viewport');
       var vl = v.vlayout;
+      G.altezza = G.altezza || [];
       vl.panels.forEach(function (p) {
-        if (p.alias === 'toolbar') Object.defineProperty(p, 'height', { get: function () { return h; }, set: function () {}, configurable: true });
+        if (p.alias === 'toolbar') {
+          if (!G.altezza.length) G.altezza.push({ p: p, h: p.height });
+          Object.defineProperty(p, 'height', { get: function () { return h; }, set: function () {}, configurable: true });
+        }
         if (p.alias === 'title') { p.el.hide(); }
       });
       vl.doLayout();
@@ -742,10 +1111,161 @@
       var lm = G.APP.getController('LeftMenu').leftMenu;
       var b = { comments: lm.btnComments, navigation: lm.btnNavigation, search: lm.btnSearchBar, chat: lm.btnChat, thumbnails: lm.btnThumbnails, about: lm.btnAbout }[nome];
       if (!b) return;
-      if (b.pressed) { lm.close ? lm.close() : (b.toggle(false), lm.onBtnMenuClick(b)); return; }
-      if (nome === 'about') { b.toggle(true); lm.onBtnMenuClick(b); return; }
-      lm.showMenu(nome);
+      // Non showMenu: chiede che il bottone sia visibile, e la colonna dei bottoni la pelle
+      // la nasconde (con showMenu i commenti non si aprivano). Si fa quello che fa il clic.
+      b.toggle(!b.pressed);
+      lm.onBtnMenuClick(b);
+      if (b.pressed && nome === 'search' && lm.panelSearch && lm.panelSearch.focus) lm.panelSearch.focus();
     });
+  }
+
+  /* ------------------------------------------------------------------ cronologia e commenti */
+  // La cronologia è quella di ONLYOFFICE (le versioni le dà HyFile), ridisegnata come negli
+  // editor web: a destra il pannello «Cronologia delle versioni», in alto la freccia per
+  // tornare al documento, la data della versione scelta e «Ripristina questa versione».
+  // Uscirne fa ricaricare l'editor (lo fa HyFile, onRequestHistoryClose): quello che si
+  // voleva fare dopo (i commenti) si ricorda in sessionStorage e si fa al giro dopo.
+  function storiaAperta() { return !!prova(function () { return lm().leftMenu.panelHistory.isVisible(); }, false); }
+  function apriStoria() {
+    if (document.body.classList.contains('hf-storia') || storiaAperta()) { esciStoria(); return; }
+    chiudiCommenti();
+    prova(function () { Common.NotificationCenter.trigger('collaboration:history'); });
+    var giri = 0;
+    (function guarda() {
+      if (storiaAperta()) { prova(entraStoria); return; }
+      if (giri++ < 100) setTimeout(guarda, 50);
+    })();
+  }
+  function esciStoria(poi) {
+    // I commenti dopo la ricarica: con commenti.js li riapre lui (la sua chiave); senza, la pelle.
+    if (poi === 'commenti' && window.pelleCommenti) { try { sessionStorage.setItem('pelle-commenti-apri', '1'); } catch (e) { /* si riapre a mano */ } }
+    else if (poi) { try { sessionStorage.setItem('hf-dopo-storia', JSON.stringify({ cosa: poi, quando: Date.now() })); } catch (e) { /* senza: si riapre a mano */ } }
+    prova(function () { Common.Gateway.requestHistoryClose(); });
+  }
+  function apriCommenti() {
+    // Con la cronologia aperta i commenti non si vedrebbero: prima si esce.
+    if (document.body.classList.contains('hf-storia') || storiaAperta()) { esciStoria('commenti'); return; }
+    var pc = window.pelleCommenti;
+    if (pc && typeof pc.alterna === 'function') { pc.alterna(); return; }
+    pannello('comments');
+    segnaCommenti();
+  }
+  /** Il bottone acceso quando il pannello dei commenti è aperto (quello di ONLYOFFICE; per le
+   *  schede di commenti.js lo dice l'evento «pelle:commenti»). */
+  function segnaCommenti(aperto) {
+    var b = document.getElementById('hf-bottone-commenti');
+    if (!b) return;
+    if (aperto === undefined) aperto = !!prova(function () { return lm().leftMenu.btnComments.pressed; }, false);
+    b.classList.toggle('premuto', !!aperto);
+  }
+  function chiudiCommenti() {
+    var pc = window.pelleCommenti;
+    if (pc && typeof pc.aperti === 'function' && pc.aperti() && typeof pc.chiudi === 'function') prova(function () { pc.chiudi(); });
+  }
+  function rifaiDopoStoria() {
+    var v = null;
+    try { v = JSON.parse(sessionStorage.getItem('hf-dopo-storia') || 'null'); sessionStorage.removeItem('hf-dopo-storia'); } catch (e) { v = null; }
+    if (v && v.cosa === 'commenti' && Date.now() - v.quando < 120000) setTimeout(function () {
+      prova(function () {
+        var pc = window.pelleCommenti;
+        if (pc && typeof pc.apri === 'function') { if (!(pc.aperti && pc.aperti())) pc.apri(); }
+        else if (!prova(function () { return lm().leftMenu.btnComments.pressed; }, false)) apriCommenti();
+      });
+    }, 300);
+  }
+  function entraStoria() {
+    if (document.body.classList.contains('hf-storia')) return;
+    document.body.classList.add('hf-storia');
+    chiudiMenu(0);
+    var testa = document.getElementById('hf-testa');
+    var riga = el('div', { id: 'hf-testa-storia' });
+    var indietro = el('button', { type: 'button', class: 'hf-tondo', 'aria-label': 'Torna al documento', 'data-hf-tip': 'Torna al documento' }, svg('indietro'));
+    indietro.addEventListener('click', function () { esciStoria(); });
+    var titolo = el('div', { class: 'hf-storia-titolo' });
+    var ripristina = el('button', { type: 'button', class: 'hf-pieno' }, 'Ripristina questa versione');
+    ripristina.hidden = true;
+    ripristina.addEventListener('click', function () {
+      var l = document.querySelector('#history-list .selected .revision-restore');
+      if (l) l.click();
+    });
+    riga.appendChild(indietro);
+    riga.appendChild(titolo);
+    riga.appendChild(el('div', { class: 'hf-spinta' }));
+    riga.appendChild(ripristina);
+    // I commenti restano a portata: dalla cronologia si esce, e si aprono al giro dopo.
+    if (document.getElementById('hf-bottone-commenti')) {
+      var bc = el('button', { type: 'button', class: 'hf-tondo', id: 'hf-storia-commenti', 'aria-label': 'Commenti', 'data-hf-tip': 'Commenti' }, svg('commenti'));
+      bc.addEventListener('click', apriCommenti);
+      riga.appendChild(bc);
+    }
+    testa.appendChild(riga);
+    // Niente barra dei comandi: in una versione vecchia non si scrive.
+    altezza(64 + 8);
+    // Il pannello a destra: nel layout di ONLYOFFICE la cronologia è il secondo pezzo da
+    // sinistra (dopo i pannelli dei commenti); spostata in fondo, il layout la mette a
+    // destra del documento. Non si rimette: uscendo l'editor si ricarica.
+    prova(function () {
+      var vp = G.APP.getController('Viewport');
+      var hl = (vp.viewport || vp.getView('Viewport')).hlayout;
+      var i = -1;
+      hl.panels.forEach(function (p, k) { if (p.alias === 'history') i = k; });
+      if (i < 0) return;
+      var pezzi = hl.panels.splice(i, 2);
+      if (pezzi[1] && pezzi[1].isresizer) { pezzi[1].el && pezzi[1].el.hide && pezzi[1].el.hide(); hl.panels.push(pezzi[1]); }
+      else if (pezzi[1]) hl.panels.splice(i, 0, pezzi[1]);
+      hl.panels.push(pezzi[0]);
+      hl.doLayout();
+      Common.NotificationCenter.trigger('layout:changed', 'history');
+    });
+    var lista = document.getElementById('history-list');
+    var aggiorna = function () {
+      var scelta = lista && lista.querySelector('.selected');
+      var data = scelta && scelta.querySelector('.user-date');
+      titolo.textContent = data ? data.textContent : 'Cronologia delle versioni';
+      ripristina.hidden = !(scelta && scelta.querySelector('.revision-restore'));
+    };
+    aggiorna();
+    if (lista && window.MutationObserver) new MutationObserver(aggiorna).observe(lista, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
+  }
+
+  /** «Conteggio parole» come negli editor web: pagine, parole, caratteri. I numeri li conta
+   *  l'editor (startGetDocInfo), il dialogo è della pelle. */
+  var conteggio = null;
+  function conteggioParole() {
+    var vecchio = document.getElementById('hf-conteggio');
+    if (vecchio) vecchio.remove();
+    var f = el('div', { id: 'hf-conteggio', role: 'dialog', 'aria-modal': 'true' });
+    f.innerHTML = '<div><h2>Conteggio parole</h2><table><tbody>' +
+      '<tr><td>Pagine</td><td data-k="PageCount">…</td></tr>' +
+      '<tr><td>Parole</td><td data-k="WordsCount">…</td></tr>' +
+      '<tr><td>Caratteri</td><td data-k="SymbolsWSCount">…</td></tr>' +
+      '<tr><td>Caratteri esclusi gli spazi</td><td data-k="SymbolsCount">…</td></tr>' +
+      '</tbody></table><div class="hf-fine"><button type="button" class="hf-pieno">OK</button></div></div>';
+    var chiudi = function () { f.remove(); rimettiFuoco(); };
+    f.addEventListener('click', function (e) { if (e.target === f || e.target.tagName === 'BUTTON') chiudi(); });
+    f.addEventListener('keydown', function (e) { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); chiudi(); } });
+    document.body.appendChild(f);
+    f.querySelector('button').focus();
+    var metti = function (o) {
+      Array.prototype.forEach.call(f.querySelectorAll('[data-k]'), function (td) {
+        var v = o && o[td.getAttribute('data-k')];
+        if (typeof v === 'number') td.textContent = v.toLocaleString('it-IT');
+      });
+    };
+    if (!conteggio) {
+      conteggio = { somma: {} };
+      G.api.asc_registerCallback('asc_onGetDocInfoStart', function () { conteggio.somma = {}; });
+      G.api.asc_registerCallback('asc_onDocInfo', function (o) {
+        // Arriva a pezzi, con i totali fin lì: l'ultimo è quello buono.
+        ['PageCount', 'WordsCount', 'SymbolsCount', 'SymbolsWSCount'].forEach(function (k) {
+          var v = prova(function () { return o['get_' + k](); }, -1);
+          if (typeof v === 'number' && v > -1) conteggio.somma[k] = v;
+        });
+        if (document.getElementById('hf-conteggio')) metti(conteggio.somma);
+      });
+      G.api.asc_registerCallback('asc_onGetDocInfoEnd', function () { var d = document.getElementById('hf-conteggio'); if (d) metti(conteggio.somma); });
+    }
+    prova(function () { G.api.startGetDocInfo(); });
   }
 
   function legale() {
@@ -835,7 +1355,7 @@
       '-',
       { t: 'Rinomina', ico: 'matita2', se: function () { return !!o.canRename && G.modifica; }, f: function () { var t = document.getElementById('hf-titolo'); setTimeout(function () { t && t.focus(); }, 50); } },
       '-',
-      { t: 'Cronologia delle versioni', ico: 'storia', se: function () { return !!o.canUseHistory; }, f: function () { Common.NotificationCenter.trigger('collaboration:history'); } },
+      { t: 'Cronologia delle versioni', ico: 'storia', se: function () { return !!o.canUseHistory; }, f: apriStoria },
       { t: 'Dettagli', ico: 'info', f: function () { lm().leftMenu.showMenu('file:info'); } },
       '-',
     ].concat(extra.dopo || []).concat([
@@ -1007,7 +1527,8 @@
         { t: 'Strumenti', voci: [
           { t: 'Controllo ortografico', on: function () { return prova(function () { return Common.Utils.InternalSettings.get('de-settings-spellcheck'); }, true) !== false; },
             f: function () { prova(function () { var s = Common.Utils.InternalSettings.get('de-settings-spellcheck') !== false; Common.Utils.InternalSettings.set('de-settings-spellcheck', !s); Common.localStorage.setBool('de-settings-spellcheck', !s); G.api.asc_setSpellCheck(!s); }); } },
-          { t: 'Conteggio parole', f: function () { prova(function () { c('Statusbar').statusbar.btnWordCount.trigger('click'); }) ; prova(function () { var b = c('Statusbar').statusbar.btnWordCount; premi(b); }); } },
+          // Il conteggio è il menu del bottone «Conteggio parole» della barra di stato (nascosta).
+          { t: 'Conteggio parole', f: conteggioParole },
           '-',
           { t: 'Revisioni', se: function () { return G.modifica && G.opz.canReview; }, sub: [
             { t: 'Rileva le modifiche', on: function () { return G.revisione(); }, f: function () { G.revisione(!G.revisione()); } },
@@ -1034,7 +1555,7 @@
       b.appendChild(gruppo([cerca, sposta('slot-btn-undo'), sposta('slot-btn-redo'), stampa(), sposta('slot-btn-copystyle')], 'base'));
       tZoom = tendina('100%', '40px', zoomVoci, 'Zoom');
       b.appendChild(gruppo([tZoom], 'zoom'));
-      if (!G.modifica) return;
+      if (!G.modifica) { barraCommenti(b); return; }
       b.appendChild(sep());
       tStile = tendina('Testo normale', '96px', function () {
         return STILI.map(function (s) {
@@ -1253,7 +1774,7 @@
       b.appendChild(gruppo([cerca, sposta('slot-btn-undo'), sposta('slot-btn-redo'), stampa(), sposta('slot-btn-copystyle')], 'base'));
       tZoom = tendina('100%', '40px', zoomVoci, 'Zoom');
       b.appendChild(gruppo([tZoom], 'zoom'));
-      if (!G.modifica) return;
+      if (!G.modifica) { barraCommenti(b); return; }
       b.appendChild(sep());
       b.appendChild(gruppo([sposta('slot-btn-currency'), sposta('slot-btn-percents'), sposta('slot-btn-digit-dec'), sposta('slot-btn-digit-inc'), sposta('slot-btn-format')], 'numeri'));
       b.appendChild(sep());
@@ -1405,7 +1926,7 @@
       b.appendChild(gruppo([cerca, piu, layout, sposta('slot-btn-undo'), sposta('slot-btn-redo'), stampa(), sposta('slot-btn-copystyle')], 'base'));
       tZoom = tendina('Adatta', '48px', zoomVoci, 'Zoom');
       b.appendChild(gruppo([tZoom], 'zoom'));
-      if (!G.modifica) return;
+      if (!G.modifica) { barraCommenti(b); return; }
       b.appendChild(sep());
       var im = bottonePelle('immagine', 'Inserisci immagine', function (x) { apriMenu([
         { t: 'Carica dal computer', f: immagine('file') },
@@ -1455,6 +1976,16 @@
    * scarica, nuovo…) si contano ma non si chiamano.
    */
   window.pelleHyfile = {
+    tempi: TEMPI,
+    // Per le prove: le facce con persone finte ([{ id, nome, colore }]), senza un secondo utente.
+    provaGente: function (finte) {
+      mettiGente((finte || []).map(function (p) {
+        return { asc_getIdOriginal: function () { return p.id; }, asc_getUserName: function () { return p.nome; },
+          asc_getColor: function () { return p.colore; }, asc_getId: function () { return p.id + '-c'; }, asc_getView: function () { return !!p.guarda; } };
+      }));
+    },
+    get documento() { return FASE.documento; },
+    get ripiego() { return FASE.ripiego; },
     verifica: function () {
       var fuori = { ok: [], vuote: [], saltate: [] };
       var SALTA = /^(Stampa|Nuovo|Condividi|Rinomina|Apri la cartella|Cronologia|Dettagli|Guida|Scorciatoie|Cerca nei menu|Informazioni|Preferenze|Lingua|Conteggio|Elimina diapositiva|Dall|Da questa|Con la vista|Adatta|\d+%|Documento|Microsoft|Foglio Open|Presentazione Open|Valori|Formato RTF|Testo normale \(|Pagina web|Libro|Immagine PNG|Immagine JPEG|Mostra|Note del|Righelli|Barra della|Griglia|Intestazioni di|Controllo ortografico|Rileva|Modifica$|Suggerimento|Altri formati|Pannello)/;
@@ -1475,5 +2006,7 @@
     },
   };
 
+  try { prendiScheletro(); } catch (e) { if (window.console) console.warn('pelle-hyfile', e); }
+  guardaFinestre();
   quandoPronto();
 })();
