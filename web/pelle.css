@@ -10,7 +10,9 @@
  * accanto alle voci della pelle.
  */
 
-:root body.hf-pelle {
+/* Sul body da subito, non sulla classe della pelle: ONLYOFFICE legge i colori della pagina
+   (fondo, righello) quando parte, prima che la pelle abbia finito di montarsi. */
+body, body.hf-pelle {
   --hf-fondo: #f9fbfd;
   --hf-barra: #edf2fa;
   --hf-testo: #1f1f1f;

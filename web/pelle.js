@@ -132,13 +132,19 @@
   /* ------------------------------------------------------------------ i ganci in ONLYOFFICE */
   var G = {}; // riempito in avvia()
 
-  function bottone(b) { return Array.isArray(b) ? b[0] : b; }
+  // I gruppi di bottoni di ONLYOFFICE (`btnsInsImage`, `btnsComment`…) sono «quasi» array
+  // (un ButtonsArray figlio di Array, che Array.isArray non riconosce): conta la lunghezza.
+  function bottone(b) {
+    if (b && !b.$el && typeof b.length === 'number') return b[0];
+    return b;
+  }
   function c(nome) { return prova(function () { return G.APP.getController(nome); }); }
 
   /** Preme un bottone di ONLYOFFICE come farebbe il mouse (la parte principale se è diviso). */
   function premi(b) {
     b = bottone(b);
     if (!b || !b.$el) return false;
+    if (G.secco) { G.secco.push('premi'); return true; }
     if (b.isDisabled && b.isDisabled()) return false;
     var btn = b.$el.is('button') ? b.$el : b.$el.find('button').first();
     btn.trigger('click');
@@ -158,6 +164,7 @@
     b = bottone(b);
     var it = voceDi(b, valore);
     if (!it) return false;
+    if (G.secco) { G.secco.push('scegli'); return true; }
     if (it.checkable && !it.checked) it.setChecked(true, true);
     b.menu.trigger('item:click', b.menu, it, {});
     return true;
@@ -167,6 +174,7 @@
   function apriMenuDi(b, ancora, verso) {
     b = bottone(b);
     if (!b || !b.menu || typeof b.menu.show !== 'function') return false;
+    if (G.secco) { G.secco.push('apri'); return true; }
     if (b.isDisabled && b.isDisabled()) return false;
     chiudiMenuOO();
     var m = b.menu;
@@ -180,6 +188,20 @@
       if (apertoOO && apertoOO.m === m) apertoOO = null;
     });
     prova(function () { m.show(); });
+    // Qualche menu (le gallerie delle forme) si rimette accanto al suo bottone nascosto:
+    // lo si riporta accanto alla voce della pelle.
+    setTimeout(function () {
+      prova(function () {
+        if (!apertoOO || apertoOO.m !== m || !m.menuRoot) return;
+        var r = ancora.getBoundingClientRect();
+        var w = m.menuRoot.outerWidth(), h = m.menuRoot.outerHeight();
+        var x = (verso || 'tl-tr') === 'tl-bl' ? r.left : r.right;
+        var y = (verso || 'tl-tr') === 'tl-bl' ? r.bottom + 2 : r.top;
+        if (x + w > window.innerWidth - 4) x = Math.max(4, ((verso || 'tl-tr') === 'tl-bl' ? window.innerWidth - w - 4 : r.left - w));
+        if (y + h > window.innerHeight - 4) y = Math.max(4, window.innerHeight - h - 4);
+        m.menuRoot.css({ left: Math.round(x), top: Math.round(y) });
+      });
+    }, 0);
     return true;
   }
   function chiudiMenuOO() {
@@ -794,7 +816,10 @@
     function hf() { return prova(function () { return c('HeaderFooterTab').view || c('HeaderFooterTab').getView('HeaderFooterTab'); }); }
     function rev() { return prova(function () { return c('Common.Controllers.ReviewChanges').view; }); }
     function viewTab() { return prova(function () { return c('ViewTab').view; }); }
-    function stile(nome) { prova(function () { G.api.put_Style(nome); }); }
+    function stile(nome) {
+      if (G.secco) { if (G.api.put_Style) G.secco.push('api'); return; }
+      prova(function () { G.api.put_Style(nome); });
+    }
     function inserisciLink() {
       var l = links();
       if (l && l.btnsHyperlink && premi(l.btnsHyperlink)) return;
@@ -1201,7 +1226,8 @@
     function tb() { return G.tb; }
     function vt() { return prova(function () { return c('ViewTab').view; }); }
     function immagine(da) { return function () { scegli(tb().btnsInsertImage, da); }; }
-    function forma() { return prova(function () { var x = tb().cmbsInsertShape; return Array.isArray(x) ? x[0] : x; }); }
+    // Le forme sono una galleria (ComboDataViewShape): il menu è quello del suo bottone «apri».
+    function forma() { return prova(function () { var x = bottone(tb().cmbsInsertShape); return x && (x.openButton || x); }); }
     function avvia(da) { return function () { scegli(tb().btnPreview, da) || premi(tb().btnPreview); }; }
     function api() { return G.api; }
     function nuovaDiapositiva() { premi(tb().btnAddSlide); }
@@ -1355,6 +1381,33 @@
     }
     return { menu: menu, barra: barra, dopo: dopo, testa: testa };
   })();
+
+  /**
+   * La verifica delle voci (per le prove su aurora, SPEC §19.5): ogni voce dei menu che
+   * agisce premendo, scegliendo o aprendo qualcosa di ONLYOFFICE lo trova davvero? Gira
+   * «a secco»: niente si preme. Le voci che parlano con HyFile o col browser (stampa,
+   * scarica, nuovo…) si contano ma non si chiamano.
+   */
+  window.pelleHyfile = {
+    verifica: function () {
+      var fuori = { ok: [], vuote: [], saltate: [] };
+      var SALTA = /^(Stampa|Nuovo|Condividi|Rinomina|Apri la cartella|Cronologia|Dettagli|Guida|Scorciatoie|Cerca nei menu|Informazioni|Preferenze|Lingua|Conteggio|Elimina diapositiva|Dall|Da questa|Con la vista|Adatta|\d+%|Documento|Microsoft|Foglio Open|Presentazione Open|Valori|Formato RTF|Testo normale \(|Pagina web|Libro|Immagine PNG|Immagine JPEG|Mostra|Note del|Righelli|Barra della|Griglia|Intestazioni di|Controllo ortografico|Rileva|Modifica$|Suggerimento|Altri formati)/;
+      (function giro(voci, via) {
+        visibili(voci).forEach(function (v) {
+          if (v === '-') return;
+          var t = via + vale(v.t, '');
+          if (v.sub) return giro(v.sub, t + ' › ');
+          if (v.oo) { (bottone(vale(v.oo)) && bottone(vale(v.oo)).menu ? fuori.ok : fuori.vuote).push(t); return; }
+          if (SALTA.test(vale(v.t, ''))) { fuori.saltate.push(t); return; }
+          G.secco = [];
+          prova(v.f);
+          (G.secco.length ? fuori.ok : fuori.vuote).push(t);
+          G.secco = null;
+        });
+      })(MENU.map(function (m) { return { t: m.t, sub: m.voci }; }), '');
+      return fuori;
+    },
+  };
 
   quandoPronto();
 })();
