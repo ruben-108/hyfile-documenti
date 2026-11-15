@@ -151,6 +151,10 @@
       mandaPosto(true);
     } else if (d.tipo === 'chiedi-posto') {
       mandaPosto(true);
+    } else if (d.tipo === 'luogo') {
+      var t = String(d.testo || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+      LUOGO = t || 'in HyFile';
+      if (statoAdesso === 'salvato') mettiStato('salvato');
     }
   });
   window.addEventListener('resize', function () { setTimeout(function () { mandaPosto(); }, 80); });
@@ -684,12 +688,19 @@
     return box;
   }
 
+  // Dove si salva: «in HyFile» di serie, «sul LaCie» se la pagina lo dice (messaggio «luogo»).
+  var LUOGO = 'in HyFile';
+  var statoAdesso = '';
+  function statoDiSerie() { return G.modifica ? 'salvato' : G.commenta ? 'commento' : 'sola'; }
   function mettiStato(s) {
+    statoAdesso = s;
     var e = document.getElementById('hf-stato');
     if (!e) return;
+    e.title = 'Le modifiche si salvano da sole ' + LUOGO;
     if (s === 'salva') e.innerHTML = svg('gira') + '<span>Salvataggio…</span>';
-    else if (s === 'salvato') e.innerHTML = svg('nuvola') + '<span>Salvato in HyFile</span>';
+    else if (s === 'salvato') e.innerHTML = svg('nuvola') + '<span>Salvato ' + esc(LUOGO) + '</span>';
     else if (s === 'sola') e.innerHTML = svg('occhio') + '<span>Solo visualizzazione</span>';
+    else if (s === 'commento') e.innerHTML = svg('commento') + '<span>Puoi commentare</span>';
     else if (s === 'offline') e.innerHTML = '<span>Senza connessione: le modifiche partono appena torna</span>';
     else e.innerHTML = '';
   }
@@ -843,6 +854,27 @@
     return b;
   }
 
+  /** Per chi può solo commentare: nella barra il bottone per aggiungere un commento. */
+  function barraCommenti(b) {
+    if (!G.commenta) return;
+    b.appendChild(sep());
+    b.appendChild(gruppo([bottonePelle('commento', 'Aggiungi commento (Ctrl+Alt+M)', function () { aggiungiCommento(); })], 'commenta'));
+  }
+  /** In fondo alla barra la modalità, come negli editor web: per chi commenta «Commento». */
+  function chipCommento() {
+    var m = tendina('Commento', '', function () {
+      return [
+        { t: 'Commento', ico: 'commento', on: function () { return true; }, f: function () {} },
+        { t: 'Per modificare chiedi a chi te l’ha condiviso', ok: function () { return false; } },
+      ];
+    }, 'Modalità');
+    m.id = 'hf-modalita';
+    m.insertAdjacentHTML('afterbegin', svg('commento'));
+    var g = gruppo([el('div', { class: 'hf-spinta' }), m], 'modalita');
+    g.style.marginLeft = 'auto';
+    return g;
+  }
+
   /** Quando la barra non ci sta, gli ultimi gruppi vanno nel «⋮». */
   function adatta() {
     var barra = document.getElementById('hf-barra');
@@ -887,6 +919,9 @@
     G.api = main.api;
     G.opz = opz;
     G.modifica = !!opz.isEdit;
+    // Chi può solo commentare (permissions.edit=false, comment=true): ONLYOFFICE lo apre in
+    // «modifica limitata ai commenti». Non è «Solo visualizzazione»: i commenti si scrivono.
+    G.commenta = !G.modifica && !!opz.canComments && !!(opz.isRestrictedEdit || opz.canCoAuthoring);
     G.utenteId = opz.user && opz.user.id;
     G.tb = prova(function () { return APP.getController('Toolbar').toolbar; });
     var editor = EDITOR[G.TIPO];
@@ -934,14 +969,16 @@
     }, true);
     var gAltro = gruppo([altro], 'altro'); gAltro.classList.add('hf-fisso');
     barra.appendChild(gAltro);
-    if (editor.coda) { var cd = editor.coda(); if (cd) { cd.classList.add('hf-fisso'); barra.appendChild(cd); } }
+    var cd = editor.coda ? editor.coda() : null;
+    if (!cd && G.commenta) cd = chipCommento();
+    if (cd) { cd.classList.add('hf-fisso'); barra.appendChild(cd); }
     // Il «⌃» in fondo: nasconde titolo e menu (resta la barra), come negli editor web.
     // La scelta resta in questo browser.
     var compatta = bottonePelle('su', 'Nascondi i menu (Ctrl+Maiusc+F)', function () { compattaTestata(!document.body.classList.contains('hf-compatta')); });
     compatta.id = 'hf-compatta';
     var gComp = gruppo([el('div', { class: 'hf-sep hf-sep-fissa' }), compatta], 'compatta');
     gComp.classList.add('hf-fisso');
-    if (!editor.coda) gComp.style.marginLeft = 'auto';
+    if (!cd) gComp.style.marginLeft = 'auto';
     barra.appendChild(gComp);
 
     altezza(ALTO);
@@ -951,13 +988,13 @@
     prova(chiudiPannelloDestro);
 
     // Salvataggio, persone, titolo.
-    mettiStato(G.modifica ? 'salvato' : 'sola');
+    mettiStato(statoDiSerie());
     prova(function () {
       G.api.asc_registerCallback('asc_onStartAction', function (tipo, id) {
         if (id === Asc.c_oAscAsyncAction.Save || id === Asc.c_oAscAsyncAction.ForceSaveButton) mettiStato('salva');
       });
       G.api.asc_registerCallback('asc_onEndAction', function (tipo, id) {
-        if (id === Asc.c_oAscAsyncAction.Save || id === Asc.c_oAscAsyncAction.ForceSaveButton) setTimeout(function () { mettiStato(G.modifica ? 'salvato' : 'sola'); }, 400);
+        if (id === Asc.c_oAscAsyncAction.Save || id === Asc.c_oAscAsyncAction.ForceSaveButton) setTimeout(function () { mettiStato(statoDiSerie()); }, 400);
       });
       G.api.asc_registerCallback('asc_onCoAuthoringDisconnect', function () { mettiStato('offline'); });
       G.api.asc_registerCallback('asc_onMeta', function (meta) {
@@ -965,6 +1002,9 @@
         if (t && meta && meta.title && document.activeElement !== t) { t.value = senzaEstensione(meta.title); t.allarga && t.allarga(); }
       });
       G.api.asc_registerCallback('asc_onAuthParticipantsChanged', function (u) { mettiGente(u); });
+      Common.NotificationCenter.on('pelle:commenti', function (aperto) { segnaCommenti(!!aperto); });
+      // Il pannello di ONLYOFFICE si chiude anche dalla sua ×: il bottone lo segue.
+      prova(function () { lm().leftMenu.btnComments.on('toggle', function () { if (!window.pelleCommenti) segnaCommenti(); }); });
       G.api.asc_registerCallback('asc_onParticipantsChanged', function (u) { mettiGente(u); });
     });
     var tAdatta = null;
@@ -988,6 +1028,10 @@
       documentoPronto();
       prova(rifaiDopoStoria);
     }, 60);
+    // commenti.js può aver riaperto il suo pannello prima che la pelle ascoltasse: si allinea.
+    setTimeout(function () {
+      prova(function () { var pc = window.pelleCommenti; if (pc && pc.aperti) segnaCommenti(!!pc.aperti()); });
+    }, 800);
   }
   // Il pannello a destra chiuso, come negli editor web, finché chi scrive non lo apre da
   // Visualizza: da lì in poi vale la sua scelta (ONLYOFFICE la ricorda).
@@ -1093,19 +1137,26 @@
     })();
   }
   function esciStoria(poi) {
-    if (poi) { try { sessionStorage.setItem('hf-dopo-storia', JSON.stringify({ cosa: poi, quando: Date.now() })); } catch (e) { /* senza: si riapre a mano */ } }
+    // I commenti dopo la ricarica: con commenti.js li riapre lui (la sua chiave); senza, la pelle.
+    if (poi === 'commenti' && window.pelleCommenti) { try { sessionStorage.setItem('pelle-commenti-apri', '1'); } catch (e) { /* si riapre a mano */ } }
+    else if (poi) { try { sessionStorage.setItem('hf-dopo-storia', JSON.stringify({ cosa: poi, quando: Date.now() })); } catch (e) { /* senza: si riapre a mano */ } }
     prova(function () { Common.Gateway.requestHistoryClose(); });
   }
   function apriCommenti() {
     // Con la cronologia aperta i commenti non si vedrebbero: prima si esce.
     if (document.body.classList.contains('hf-storia') || storiaAperta()) { esciStoria('commenti'); return; }
     var pc = window.pelleCommenti;
-    if (pc && typeof pc.apri === 'function') {
-      if (typeof pc.aperti === 'function' && pc.aperti() && typeof pc.chiudi === 'function') pc.chiudi();
-      else pc.apri();
-      return;
-    }
+    if (pc && typeof pc.alterna === 'function') { pc.alterna(); return; }
     pannello('comments');
+    segnaCommenti();
+  }
+  /** Il bottone acceso quando il pannello dei commenti è aperto (quello di ONLYOFFICE; per le
+   *  schede di commenti.js lo dice l'evento «pelle:commenti»). */
+  function segnaCommenti(aperto) {
+    var b = document.getElementById('hf-bottone-commenti');
+    if (!b) return;
+    if (aperto === undefined) aperto = !!prova(function () { return lm().leftMenu.btnComments.pressed; }, false);
+    b.classList.toggle('premuto', !!aperto);
   }
   function chiudiCommenti() {
     var pc = window.pelleCommenti;
@@ -1114,7 +1165,13 @@
   function rifaiDopoStoria() {
     var v = null;
     try { v = JSON.parse(sessionStorage.getItem('hf-dopo-storia') || 'null'); sessionStorage.removeItem('hf-dopo-storia'); } catch (e) { v = null; }
-    if (v && v.cosa === 'commenti' && Date.now() - v.quando < 120000) setTimeout(function () { prova(apriCommenti); }, 300);
+    if (v && v.cosa === 'commenti' && Date.now() - v.quando < 120000) setTimeout(function () {
+      prova(function () {
+        var pc = window.pelleCommenti;
+        if (pc && typeof pc.apri === 'function') { if (!(pc.aperti && pc.aperti())) pc.apri(); }
+        else if (!prova(function () { return lm().leftMenu.btnComments.pressed; }, false)) apriCommenti();
+      });
+    }, 300);
   }
   function entraStoria() {
     if (document.body.classList.contains('hf-storia')) return;
@@ -1498,7 +1555,7 @@
       b.appendChild(gruppo([cerca, sposta('slot-btn-undo'), sposta('slot-btn-redo'), stampa(), sposta('slot-btn-copystyle')], 'base'));
       tZoom = tendina('100%', '40px', zoomVoci, 'Zoom');
       b.appendChild(gruppo([tZoom], 'zoom'));
-      if (!G.modifica) return;
+      if (!G.modifica) { barraCommenti(b); return; }
       b.appendChild(sep());
       tStile = tendina('Testo normale', '96px', function () {
         return STILI.map(function (s) {
@@ -1717,7 +1774,7 @@
       b.appendChild(gruppo([cerca, sposta('slot-btn-undo'), sposta('slot-btn-redo'), stampa(), sposta('slot-btn-copystyle')], 'base'));
       tZoom = tendina('100%', '40px', zoomVoci, 'Zoom');
       b.appendChild(gruppo([tZoom], 'zoom'));
-      if (!G.modifica) return;
+      if (!G.modifica) { barraCommenti(b); return; }
       b.appendChild(sep());
       b.appendChild(gruppo([sposta('slot-btn-currency'), sposta('slot-btn-percents'), sposta('slot-btn-digit-dec'), sposta('slot-btn-digit-inc'), sposta('slot-btn-format')], 'numeri'));
       b.appendChild(sep());
@@ -1869,7 +1926,7 @@
       b.appendChild(gruppo([cerca, piu, layout, sposta('slot-btn-undo'), sposta('slot-btn-redo'), stampa(), sposta('slot-btn-copystyle')], 'base'));
       tZoom = tendina('Adatta', '48px', zoomVoci, 'Zoom');
       b.appendChild(gruppo([tZoom], 'zoom'));
-      if (!G.modifica) return;
+      if (!G.modifica) { barraCommenti(b); return; }
       b.appendChild(sep());
       var im = bottonePelle('immagine', 'Inserisci immagine', function (x) { apriMenu([
         { t: 'Carica dal computer', f: immagine('file') },

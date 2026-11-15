@@ -87,7 +87,10 @@ body.hf-pelle #app-title { display: none !important; }
    alta 64, icona 40×40 a (12,10), titolo da y 8 (28 di alto), menu da y 36 (24), a destra
    bottoni da 40 centrati a y 30, poi il posto di HyFile fino al bordo. Lo scheletro di
    caricamento (in fondo) ha gli stessi numeri: se cambiano qui, cambiano anche là. */
-body.hf-pelle #toolbar { background: var(--hf-fondo) !important; overflow: visible !important; z-index: 3; padding: 0 !important; }
+/* z-index alto: i menu dei bottoni di ONLYOFFICE stanno dentro la barra (anche parcheggiata),
+   e nelle presentazioni l'area della diapositiva li copriva (layout, forme). Sotto le
+   finestre modali di ONLYOFFICE (1000 in su). */
+body.hf-pelle #toolbar { background: var(--hf-fondo) !important; overflow: visible !important; z-index: 990; padding: 0 !important; }
 /* Sotto la barra il documento comincia subito (a y 112, come il righello degli editor web):
    ONLYOFFICE ci metteva 8 px suoi, e 40 di colonna a sinistra per i suoi bottoni, che la
    pelle non usa (i pannelli si aprono dai menu). */
@@ -138,6 +141,7 @@ body.hf-pelle #left-menu .left-panel { padding-left: 0 !important; padding-right
   display: grid; place-items: center; cursor: pointer; padding: 0;
 }
 .hf-tondo:hover { background: var(--hf-passa); }
+.hf-tondo.premuto { background: var(--hf-premuto); }
 .hf-tondo svg { width: 24px; height: 24px; fill: var(--hf-icona); }
 /* Condividi in due pezzi: 114 + 1 di bianco + 33, alto 40 (gli stessi dello scheletro). */
 #hf-condividi-box { display: inline-flex; flex: none; height: 40px; border-radius: 20px; background: #fff; overflow: hidden; }
@@ -376,6 +380,20 @@ body.hf-pelle-cell #cell-editing-box { border-top: 1px solid #e1e3e1 !important;
   background:
     no-repeat calc(50% + 2.5px) 46px / 794px 3000px linear-gradient(#fff, #fff),
     no-repeat calc(50% + 2.5px) 45px / 796px 3000px linear-gradient(#c4c7c5, #c4c7c5) !important;
+}
+
+/* Documenti da guardare soltanto (ONLYOFFICE lo segna sul suo segnaposto, margin-top 19):
+   niente righelli, quindi il foglio sale di 26 e si centra su tutta la larghezza; niente
+   Condividi in testata, cronologia e commenti vanno accanto al posto di HyFile. */
+#sktoolbar-pdf + .placeholder[style*="margin-top"] {
+  background:
+    no-repeat calc(50% - 7px) 20px / 794px 3000px linear-gradient(#fff, #fff),
+    no-repeat calc(50% - 7px) 19px / 796px 3000px linear-gradient(#c4c7c5, #c4c7c5) !important;
+}
+#sktoolbar-pdf + .placeholder[style*="margin-top"]::after {
+  background:
+    no-repeat right 8px top 8px / 24px 24px var(--sk-commenti),
+    no-repeat right 56px top 8px / 24px 24px var(--sk-storia);
 }
 
 /* Fogli: la barra della formula (y 112, alta 24, il nome della cella largo 100), da y 140 la
@@ -667,16 +685,17 @@ body.hf-pelle-cell #ce-cell-content { font: 400 13px/20px Roboto, Arial, sans-se
 /* Le schede dei fogli: quella aperta azzurra col testo blu, le altre grigie, come gli
    editor web; «+» e l'elenco dei fogli a sinistra restano quelli di ONLYOFFICE. */
 body.hf-pelle-cell #statusbar { background: var(--hf-fondo) !important; }
-body.hf-pelle-cell #statusbar_bottom .sheet-list li > span, body.hf-pelle-cell .statusbar .sheet-list li > span {
+body.hf-pelle-cell #statusbar_bottom > li { border: 0 !important; background: none !important; margin: 0 2px 0 0 !important; box-shadow: none !important; }
+body.hf-pelle-cell #statusbar_bottom > li > span {
   font: 500 14px/20px var(--hf-font) !important; color: #444746 !important; border: 0 !important;
-  background: transparent !important; border-radius: 0 !important; padding: 5px 16px !important; height: auto !important;
+  background: transparent !important; border-radius: 0 !important; padding: 5px 16px !important; box-shadow: none !important;
 }
-body.hf-pelle-cell .statusbar .sheet-list li { border: 0 !important; background: none !important; margin-right: 2px !important; }
-body.hf-pelle-cell .statusbar .sheet-list li:hover > span { background: rgba(68, 71, 70, .08) !important; }
-body.hf-pelle-cell .statusbar .sheet-list li.active > span, body.hf-pelle-cell .statusbar .sheet-list li.selected > span {
-  background: #e1e9f7 !important; color: var(--hf-blu) !important; box-shadow: none !important;
+body.hf-pelle-cell #statusbar_bottom > li:hover > span { background: rgba(68, 71, 70, .08) !important; }
+body.hf-pelle-cell #statusbar_bottom > li.active > span {
+  background: #e1e9f7 !important; color: var(--hf-blu) !important;
 }
-body.hf-pelle-cell .statusbar .sheet-list li.active { border-top: 0 !important; }
+body.hf-pelle-cell #statusbar_bottom > li.active::after, body.hf-pelle-cell #statusbar_bottom > li::before { display: none !important; }
+body.hf-pelle-cell #statusbar_bottom > li > span > .btn-sheet-view { display: none !important; }
 
 /* ---------------------------------------------------------------- presentazioni */
 body.hf-pelle-slide #id_panel_thumbnails, body.hf-pelle-slide #id_thumbnails { background: var(--hf-fondo) !important; }
@@ -689,3 +708,21 @@ body.hf-pelle-slide #id_panel_thumbnails, body.hf-pelle-slide #id_thumbnails { b
 #hf-conteggio td { padding: 6px 0; border-bottom: 1px solid #e3e3e3; }
 #hf-conteggio td + td { text-align: right; font-variant-numeric: tabular-nums; }
 #hf-conteggio .hf-fine { text-align: right; margin-top: 20px; }
+
+/* ---------------------------------------------------------------- finestre strette */
+/* Sotto i 1180 px «Presentazione» diventa un tondo con l'icona (come negli editor web) e i
+   menu stringono il passo: la riga dei menu non deve finire sotto i bottoni di destra. */
+@media (max-width: 1180px) {
+  .hf-presenta { width: 40px; height: 40px; padding: 0; justify-content: center; gap: 0; margin-left: 0; }
+  .hf-presenta span { display: none; }
+  :where(#loading-mask:not(.hf-finta), #hf-scheletro) > .sktoolbar:not(#sktoolbar-pdf) + .placeholder::after {
+    background:
+      no-repeat right 0 top 0 / 148px 40px var(--sk-condividi),
+      no-repeat right 156px top 0 / 40px 40px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Ccircle cx='20' cy='20' r='19.5' fill='none' stroke='%23747775'/%3E%3Cpath transform='translate(10 10) scale(.8333)' fill='%231f1f1f' d='M10 8.64L15.27 12 10 15.36V8.64M8 5v14l11-7L8 5z'/%3E%3C/svg%3E"),
+      no-repeat right 212px top 8px / 24px 24px var(--sk-commenti),
+      no-repeat right 260px top 8px / 24px 24px var(--sk-storia);
+  }
+}
+@media (max-width: 1100px) {
+  #hf-menu > button { padding: 2px 5px; }
+}
