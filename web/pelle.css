@@ -1,0 +1,271 @@
+/*
+ * La pelle di HyFile sopra ONLYOFFICE Docs (HyFile, SPEC §19.5).
+ * Copyright (C) 2026 Ruben Leo. Software libero: AGPL v3, come ONLYOFFICE su cui poggia.
+ * Il codice di questa pelle è pubblico: vedi «Guida > Informazioni legali» nell'editor.
+ *
+ * Disegna i tre editor come gli editor d'ufficio sul web che tutti conoscono: una testata
+ * con titolo e menu (File, Modifica, Visualizza…), una sola barra arrotondata, la pagina
+ * su un fondo chiaro. Le parti di ONLYOFFICE che la pelle non usa restano «parcheggiate»
+ * fuori dallo schermo (non tolte): i loro menu a tendina servono ancora, e si aprono
+ * accanto alle voci della pelle.
+ */
+
+:root body.hf-pelle {
+  --hf-fondo: #f9fbfd;
+  --hf-barra: #edf2fa;
+  --hf-testo: #1f1f1f;
+  --hf-icona: #444746;
+  --hf-passa: rgba(68, 71, 70, .08);
+  --hf-premuto: #d3e3fd;
+  --hf-blu: #0b57d0;
+  --hf-condividi: #c2e7ff;
+  --hf-condividi-testo: #001d35;
+  --hf-bordo: #c4c7c5;
+  --hf-ombra: 0 1px 2px 0 rgba(60, 64, 67, .3), 0 2px 6px 2px rgba(60, 64, 67, .15);
+  --hf-font: "Google Sans", Roboto, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+
+  /* I colori di ONLYOFFICE che si vedono ancora (righello, fondo, menu, finestre). */
+  --background-normal: #ffffff !important;
+  --background-toolbar: var(--hf-fondo) !important;
+  --background-toolbar-tab: var(--hf-fondo) !important;
+  --background-statusbar: var(--hf-fondo) !important;
+  --background-pane: var(--hf-fondo) !important;
+  --toolbar-header-document: var(--hf-fondo) !important;
+  --toolbar-header-spreadsheet: var(--hf-fondo) !important;
+  --toolbar-header-presentation: var(--hf-fondo) !important;
+  --highlight-button-hover: rgba(68, 71, 70, .08) !important;
+  --highlight-button-pressed: var(--hf-premuto) !important;
+  --highlight-button-pressed-hover: #c2d7f8 !important;
+  --border-toolbar: transparent !important;
+  --canvas-background: var(--hf-fondo) !important;
+  --canvas-page-border: #dadce0 !important;
+  --canvas-ruler-background: var(--hf-fondo) !important;
+  --canvas-ruler-border: var(--hf-fondo) !important;
+  --canvas-ruler-margins-background: #e3e3e3 !important;
+  --canvas-ruler-mark: #444746 !important;
+  --canvas-scroll-thumb: #dadce0 !important;
+  --canvas-scroll-thumb-hover: #bdc1c6 !important;
+  --canvas-scroll-thumb-border: #dadce0 !important;
+  --canvas-scroll-thumb-border-hover: #bdc1c6 !important;
+  --text-normal: var(--hf-testo) !important;
+  --icon-normal: var(--hf-icona) !important;
+  --background-accent-button: var(--hf-blu) !important;
+  --background-primary-dialog-button: var(--hf-blu) !important;
+  --highlight-text-select: var(--hf-blu) !important;
+  --border-control-focus: var(--hf-blu) !important;
+  --border-preview-select: var(--hf-blu) !important;
+  --text-link: var(--hf-blu) !important;
+}
+
+/* ---------------------------------------------------------------- il parcheggio */
+/* La barra di ONLYOFFICE resta viva fuori dallo schermo: i suoi menu (che sono «fixed»)
+   tornano visibili quando li si apre accanto a una voce della pelle. */
+body.hf-pelle #toolbar > .toolbar.hf-parcheggio {
+  position: fixed !important;
+  left: -6000px !important;
+  top: 0 !important;
+  width: 4000px !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+body.hf-pelle #toolbar > .toolbar.hf-parcheggio .box-controls .panel { display: flex !important; }
+body.hf-pelle .hf-parcheggio .dropdown-menu,
+body.hf-pelle .hf-parcheggio .dropdown-menu * { visibility: visible; pointer-events: auto; }
+body.hf-pelle #app-title { display: none !important; }
+
+/* ---------------------------------------------------------------- la testata */
+body.hf-pelle #toolbar { background: var(--hf-fondo) !important; overflow: visible !important; z-index: 3; }
+#hf-testa {
+  display: flex; align-items: flex-start; gap: 8px;
+  height: 64px; box-sizing: border-box; padding: 8px 16px 0 12px;
+  background: var(--hf-fondo); font-family: var(--hf-font); color: var(--hf-testo);
+  user-select: none;
+}
+#hf-testa .hf-logo {
+  flex: none; width: 40px; height: 40px; display: grid; place-items: center;
+  border-radius: 50%; cursor: pointer; margin-top: 2px;
+}
+#hf-testa .hf-logo:hover { background: var(--hf-passa); }
+#hf-testa .hf-logo svg { width: 26px; height: 32px; }
+#hf-testa .hf-centro { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+#hf-testa .hf-riga-titolo { display: flex; align-items: center; gap: 2px; height: 30px; min-width: 0; }
+#hf-titolo {
+  font: 400 18px/24px var(--hf-font); color: var(--hf-testo); height: 28px; box-sizing: border-box;
+  border: 1px solid transparent; border-radius: 4px; padding: 0 6px; margin-left: -1px;
+  background: transparent; outline: none; min-width: 2ch; max-width: 100%;
+  text-overflow: ellipsis;
+}
+#hf-titolo:not([readonly]):hover { border-color: #747775; }
+#hf-titolo:not([readonly]):focus { border: 2px solid var(--hf-blu); padding: 0 5px; }
+#hf-titolo[readonly] { cursor: default; }
+.hf-misura { position: absolute; visibility: hidden; white-space: pre; font: 400 18px/24px var(--hf-font); left: -9999px; }
+#hf-testa .hf-stato {
+  display: inline-flex; align-items: center; gap: 6px; margin-left: 8px;
+  font: 400 12px/16px var(--hf-font); color: #444746; white-space: nowrap;
+}
+#hf-testa .hf-stato svg { width: 20px; height: 20px; fill: #444746; }
+#hf-menu { display: flex; align-items: center; height: 26px; margin-left: -2px; }
+#hf-menu > button {
+  font: 400 14px/20px var(--hf-font); color: var(--hf-testo); background: none; border: 0;
+  padding: 1px 7px 3px; border-radius: 4px; cursor: pointer; white-space: nowrap;
+}
+#hf-menu > button:hover { background: var(--hf-passa); }
+#hf-menu > button.aperto { background: var(--hf-premuto); }
+#hf-testa .hf-destra { flex: none; display: flex; align-items: center; gap: 4px; height: 48px; }
+.hf-tondo {
+  width: 40px; height: 40px; border-radius: 50%; border: 0; background: none;
+  display: grid; place-items: center; cursor: pointer; padding: 0;
+}
+.hf-tondo:hover { background: var(--hf-passa); }
+.hf-tondo svg { width: 24px; height: 24px; fill: var(--hf-icona); }
+#hf-condividi {
+  display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 22px 0 16px;
+  border: 0; border-radius: 20px; background: var(--hf-condividi); color: var(--hf-condividi-testo);
+  font: 500 14px/20px var(--hf-font); cursor: pointer; margin-left: 4px; letter-spacing: .1px;
+}
+#hf-condividi:hover { box-shadow: 0 1px 2px rgba(0,0,0,.3), 0 1px 3px 1px rgba(0,0,0,.15); }
+#hf-condividi svg { width: 20px; height: 20px; fill: currentColor; }
+.hf-avatar {
+  width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
+  color: #fff; font: 500 14px/1 var(--hf-font); margin: 0 4px 0 8px; flex: none;
+}
+#hf-gente { display: flex; align-items: center; }
+#hf-gente .hf-avatar { margin: 0 0 0 -6px; width: 30px; height: 30px; font-size: 13px; border: 2px solid var(--hf-fondo); }
+#hf-gente:empty { display: none; }
+
+/* ---------------------------------------------------------------- la barra */
+#hf-barra {
+  display: flex; align-items: center; height: 40px; box-sizing: border-box;
+  margin: 0 8px; padding: 0 8px; border-radius: 24px; background: var(--hf-barra);
+  font-family: var(--hf-font); color: var(--hf-testo); overflow: hidden; position: relative;
+}
+#hf-barra .hf-gruppo { display: flex; align-items: center; flex: none; gap: 1px; }
+#hf-barra .hf-gruppo.hf-nascosto, #hf-barra .hf-sep.hf-nascosto { display: none; }
+#hf-barra .hf-sep { width: 1px; height: 20px; background: #c7c7c7; margin: 0 6px; flex: none; }
+#hf-barra .hf-spinta { flex: 1 1 auto; }
+#hf-barra [id^=slot-]:not(.hidden), .hf-pop [id^=slot-]:not(.hidden) { display: inline-flex !important; align-items: center; }
+
+/* I bottoni di ONLYOFFICE dentro la barra: 28 px, angoli tondi, niente bordi. */
+#hf-barra .btn-toolbar, .hf-pop .btn-toolbar {
+  min-width: 28px; height: 28px; border-radius: 4px !important; border: 0 !important;
+  background: transparent; padding: 0 4px;
+}
+#hf-barra .btn-toolbar:hover:not(.disabled), .hf-pop .btn-toolbar:hover:not(.disabled) { background: var(--hf-passa) !important; }
+#hf-barra .btn-toolbar.active, #hf-barra .btn-toolbar:active:not(.disabled),
+.hf-pop .btn-toolbar.active { background: var(--hf-premuto) !important; }
+#hf-barra .btn-group.split > .btn-toolbar:first-child { border-radius: 4px 0 0 4px !important; }
+#hf-barra .btn-group.split > .btn-toolbar.dropdown-toggle { border-radius: 0 4px 4px 0 !important; min-width: 14px; padding: 0 1px; }
+#hf-barra .btn-group.split:hover > .btn-toolbar:not(.disabled) { background: var(--hf-passa) !important; }
+#hf-barra .caption { display: none !important; }
+#hf-barra .btn-toolbar.x-huge, #hf-barra .btn-toolbar.x-huge.icon-top { height: 28px !important; min-width: 28px; width: auto; padding: 0 4px; }
+#hf-barra .btn-toolbar.x-huge .inner-box-icon { width: 20px; height: 20px; margin: 0; display: inline-block; }
+#hf-barra .btn-toolbar.x-huge .inner-box-caption { display: none !important; }
+
+/* Carattere e dimensione: come i campi della barra di un editor web. */
+#hf-barra .combobox input, #hf-barra .combobox .form-control {
+  height: 28px !important; border-radius: 4px !important; background: transparent !important;
+  border: 1px solid transparent !important; font: 400 14px/20px var(--hf-font) !important; color: var(--hf-testo) !important;
+  box-shadow: none !important;
+}
+#hf-barra .combobox:hover input { background: var(--hf-passa) !important; }
+#hf-barra .combobox input:focus { border-color: var(--hf-blu) !important; background: #fff !important; }
+#hf-barra .combobox .btn-default { background: transparent !important; border: 0 !important; }
+#hf-barra #slot-field-fontname { min-width: 0 !important; flex-grow: 0 !important; }
+#hf-barra #slot-field-fontname .combobox, #hf-barra #slot-field-fontname input { width: 104px !important; }
+#hf-barra #slot-field-fontsize .combobox, #hf-barra #slot-field-fontsize input { width: 36px !important; text-align: center; }
+#hf-barra #slot-field-fontsize input { border: 1px solid #747775 !important; padding: 0 2px !important; }
+#hf-barra #slot-field-fontsize .btn-default, #hf-barra #slot-field-fontsize .caret { display: none !important; }
+
+/* Le nostre tendine nella barra (zoom, stile, allineamento…). */
+.hf-tendina {
+  display: inline-flex; align-items: center; gap: 2px; height: 28px; padding: 0 4px 0 8px;
+  border: 0; border-radius: 4px; background: none; cursor: pointer; color: var(--hf-testo);
+  font: 400 14px/20px var(--hf-font); white-space: nowrap;
+}
+.hf-tendina:hover { background: var(--hf-passa); }
+.hf-tendina.aperto { background: var(--hf-premuto); }
+.hf-tendina svg { width: 18px; height: 18px; fill: var(--hf-icona); flex: none; }
+.hf-tendina .hf-etichetta { overflow: hidden; text-overflow: ellipsis; text-align: left; }
+.hf-bottone {
+  width: 28px; height: 28px; border: 0; border-radius: 4px; background: none; cursor: pointer;
+  display: inline-grid; place-items: center; padding: 0; flex: none;
+}
+.hf-bottone:hover { background: var(--hf-passa); }
+.hf-bottone.aperto, .hf-bottone.premuto { background: var(--hf-premuto); }
+.hf-bottone svg { width: 20px; height: 20px; fill: var(--hf-icona); }
+.hf-bottone[disabled] { opacity: .38; cursor: default; background: none; }
+
+/* ---------------------------------------------------------------- i menu della pelle */
+.hf-pop {
+  position: fixed; z-index: 10000; background: #fff; border-radius: 4px; box-shadow: var(--hf-ombra);
+  padding: 6px 0; min-width: 220px; max-height: calc(100vh - 16px); overflow-y: auto;
+  font: 400 14px/20px var(--hf-font); color: var(--hf-testo); box-sizing: border-box;
+}
+.hf-pop.hf-pop-barra { padding: 4px; min-width: 0; display: flex; gap: 2px; align-items: center; border-radius: 8px; }
+.hf-voce {
+  display: flex; align-items: center; gap: 12px; height: 32px; padding: 0 16px 0 12px;
+  cursor: pointer; white-space: nowrap; position: relative;
+}
+.hf-voce:hover, .hf-voce.attiva { background: #f1f3f4; }
+.hf-voce.spenta { color: #a8abad; cursor: default; background: none; }
+.hf-voce .hf-ico { width: 20px; height: 20px; flex: none; display: grid; place-items: center; }
+.hf-voce .hf-ico svg { width: 20px; height: 20px; fill: var(--hf-icona); }
+.hf-voce.spenta .hf-ico svg { fill: #c4c7c5; }
+.hf-voce .hf-testo { flex: 1 1 auto; }
+.hf-voce .hf-tasti { color: #5f6368; font-size: 13px; margin-left: 24px; }
+.hf-voce .hf-freccia { width: 18px; height: 18px; fill: var(--hf-icona); margin-right: -6px; }
+.hf-linea { height: 1px; background: #e3e3e3; margin: 6px 0; }
+.hf-cerca-menu { padding: 4px 12px 8px; }
+.hf-cerca-menu input {
+  width: 100%; box-sizing: border-box; height: 32px; border: 1px solid #747775; border-radius: 4px;
+  padding: 0 10px; font: 400 14px/20px var(--hf-font); outline: none;
+}
+.hf-cerca-menu input:focus { border-color: var(--hf-blu); border-width: 2px; padding: 0 9px; }
+.hf-cerca-nulla { padding: 6px 16px; color: #5f6368; }
+
+/* La finestra «Informazioni legali». */
+#hf-legale {
+  position: fixed; inset: 0; z-index: 10001; background: rgba(32, 33, 36, .4);
+  display: grid; place-items: center; font-family: var(--hf-font);
+}
+#hf-legale > div {
+  background: #fff; border-radius: 28px; padding: 24px; width: min(520px, calc(100vw - 32px));
+  box-shadow: var(--hf-ombra); color: var(--hf-testo); font-size: 14px; line-height: 20px;
+}
+#hf-legale h2 { font: 400 24px/32px var(--hf-font); margin: 0 0 16px; }
+#hf-legale p { margin: 0 0 12px; }
+#hf-legale a { color: var(--hf-blu); }
+#hf-legale .hf-fine { text-align: right; margin-top: 20px; }
+#hf-legale button {
+  border: 0; background: none; color: var(--hf-blu); font: 500 14px/20px var(--hf-font);
+  padding: 10px 12px; border-radius: 20px; cursor: pointer;
+}
+#hf-legale button:hover { background: rgba(11, 87, 208, .08); }
+
+/* ---------------------------------------------------------------- il resto dell'editor */
+body.hf-pelle #left-menu .tool-menu-btns { display: none !important; }
+body.hf-pelle #left-menu { border-right: 0 !important; }
+body.hf-pelle #right-menu .tool-menu-btns,
+body.hf-pelle .right-menu .tool-menu-btns { display: none !important; }
+body.hf-pelle #right-menu { border-left: 0 !important; }
+body.hf-pelle .dropdown-menu { border-radius: 4px; border: 0 !important; box-shadow: var(--hf-ombra) !important; }
+body.hf-pelle .asc-window { border-radius: 8px; border: 0; box-shadow: var(--hf-ombra); }
+body.hf-pelle .asc-window .header { border-radius: 8px 8px 0 0; }
+
+/* ---------------------------------------------------------------- presentazioni e fogli */
+.hf-presenta {
+  display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 18px 0 12px;
+  border: 1px solid #747775; border-radius: 20px; background: transparent; color: var(--hf-testo);
+  font: 500 14px/20px var(--hf-font); cursor: pointer; margin-left: 4px;
+}
+.hf-presenta:hover { background: var(--hf-passa); }
+.hf-presenta svg { width: 20px; height: 20px; fill: currentColor; }
+#hf-barra #slot-btn-format { min-width: 0 !important; flex-grow: 0 !important; }
+#hf-barra #slot-btn-format .combobox, #hf-barra #slot-btn-format input { width: 88px !important; }
+#hf-barra #slot-addslide .btn-toolbar { min-width: 28px; }
+body.hf-pelle-cell #statusbar, body.hf-pelle-cell .statusbar { background: var(--hf-fondo) !important; border-top: 1px solid #e1e3e1 !important; }
+body.hf-pelle-cell #cell-editing-box, body.hf-pelle-cell #ce-cell-name, body.hf-pelle-cell #ce-cell-content { background: #fff !important; }
+body.hf-pelle-cell #cell-editing-box { border-top: 1px solid #e1e3e1 !important; border-bottom: 1px solid #e1e3e1 !important; }
+
+.hf-bottone.hf-freccina { width: 16px; margin-left: -2px; }
+.hf-bottone.hf-freccina svg { width: 18px; height: 18px; }
