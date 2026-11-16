@@ -333,7 +333,7 @@
   }
   /** Apre il menu di un bottone di ONLYOFFICE accanto a un elemento della pelle. */
   var apertoOO = null;
-  function apriMenuDi(b, ancora, verso) {
+  function apriMenuDi(b, ancora, verso, riprovato) {
     b = bottone(b);
     if (!b || !b.menu || typeof b.menu.show !== 'function') return false;
     if (G.secco) { G.secco.push('apri'); return true; }
@@ -344,9 +344,19 @@
     m.menuAlignEl = $(ancora);
     m.menuAlign = verso || 'tl-tr';
     apertoOO = { m: m, prima: prima };
+    // Il bottone può stare in un cassetto chiuso o nel «⋮» chiuso (finestra stretta):
+    // dentro un `display: none` il suo menu non si vede. Il cassetto si apre per finta
+    // (fuori dallo schermo e trasparente, ma col menu visibile) finché il menu è aperto.
+    var palco = prova(function () {
+      var x = (b.cmpEl || b.$el)[0];
+      var p = x && x.closest && x.closest('.hf-pop-barra');
+      return p && p.style.display === 'none' ? p : null;
+    });
+    if (palco) palco.classList.add('hf-palco');
     m.once('hide:after', function () {
       m.menuAlignEl = prima.el;
       m.menuAlign = prima.al;
+      if (palco) palco.classList.remove('hf-palco');
       if (apertoOO && apertoOO.m === m) apertoOO = null;
     });
     prova(function () { m.show(); });
@@ -364,6 +374,15 @@
         m.menuRoot.css({ left: Math.round(x), top: Math.round(y) });
       });
     }, 0);
+    // Passando da una voce all'altra, ONLYOFFICE a volte chiude anche il menu nuovo mentre
+    // chiude il vecchio (Fogli, Modifica: da «Cancella» a «Riempi»). Se dopo un attimo non
+    // si vede e il mouse è ancora sulla voce, si riapre: una volta sola.
+    if (!riprovato) {
+      setTimeout(function () {
+        if (prova(function () { return m.isVisible(); }, true)) return;
+        if (ancora.isConnected && ancora.classList.contains('attiva')) apriMenuDi(b, ancora, verso, true);
+      }, 250);
+    }
     return true;
   }
   function chiudiMenuOO() {
@@ -396,15 +415,32 @@
     while (r.length && r[r.length - 1] === '-') r.pop();
     return r;
   }
+  /** Dove si apre un menu. Come negli editor web: un menu della barra sta sempre sotto
+   *  la sua voce, e se non ci sta si accorcia e scorre (prima saliva fino a coprire la
+   *  testata: «Inserisci» in una finestra bassa, Ruben 15/11/2026). Solo se sotto resta
+   *  meno di SOTTO_MINIMO sale. Un sottomenu sta accanto alla sua voce e sale quanto
+   *  serve, mai oltre il bordo di sopra; se è più alto della finestra, scorre. */
+  var SOTTO_MINIMO = 200;
   function posiziona(pop, ancora, verso) {
+    pop.style.maxHeight = '';
     var a = ancora.getBoundingClientRect();
     var w = pop.offsetWidth, h = pop.offsetHeight;
     var W = window.innerWidth, H = window.innerHeight;
     var x, y;
-    if (verso === 'lato') { x = a.right - 4; y = a.top - 6; if (x + w > W - 4) x = a.left - w + 4; }
-    else { x = a.left; y = a.bottom + 2; }
+    if (verso === 'lato') {
+      x = a.right - 4; y = a.top - 6;
+      if (x + w > W - 4) x = a.left - w + 4;
+      if (y + h > H - 8) y = H - h - 8;
+      y = Math.max(8, y);
+      if (y + h > H - 8) pop.style.maxHeight = (H - 8 - y) + 'px';
+    } else {
+      x = a.left; y = a.bottom + 2;
+      if (y + h > H - 8) {
+        if (H - 8 - y >= Math.min(h, SOTTO_MINIMO)) pop.style.maxHeight = (H - 8 - y) + 'px';
+        else { y = Math.max(8, H - h - 8); if (y + h > H - 8) pop.style.maxHeight = (H - 8 - y) + 'px'; }
+      }
+    }
     if (x + w > W - 4) x = W - w - 4;
-    if (y + h > H - 4) y = Math.max(4, H - h - 4);
     pop.style.left = Math.max(4, x) + 'px';
     pop.style.top = Math.max(4, y) + 'px';
   }
@@ -417,6 +453,9 @@
     lista.forEach(function (v) {
       if (v === '-') { pop.appendChild(el('div', { class: 'hf-linea' })); return; }
       var ok = vale(v.ok, true) !== false;
+      // Una voce che apre il menu di un bottone spento (Capolettera fuori da un paragrafo)
+      // si vede spenta, invece di avere la freccia e non aprire niente.
+      if (ok && v.oo) ok = !prova(function () { var bb = bottone(vale(v.oo)); return bb && bb.isDisabled && bb.isDisabled(); }, false);
       var spunta = v.on ? vale(v.on, false) : false;
       var r = el('div', { class: 'hf-voce' + (ok ? '' : ' spenta'), role: 'menuitem' });
       r.innerHTML = (conIcone ? '<span class="hf-ico">' + (spunta ? svg('spunta') : v.ico ? svg(v.ico) : '') + '</span>' : '') +
@@ -450,6 +489,9 @@
     });
     document.body.appendChild(pop);
     posiziona(pop, ancora, verso);
+    // Un menu accorciato scorre: il sottomenu aperto resterebbe accanto a una voce che
+    // non è più lì, quindi si chiude.
+    pop.addEventListener('scroll', function () { if (pila.length > livello + 1) { chiudiMenu(livello + 1); chiudiMenuOO(); } });
     if (livello === 0 && ancora) ancora.classList.add('aperto');
     pila.push({ pop: pop, ancora: livello === 0 ? ancora : null });
     return pop;
@@ -801,12 +843,36 @@
     s.classList.remove('hidden');
     return s;
   }
+  /** Carattere e dimensione si aprono al clic sul nome, come negli editor web: in
+   *  ONLYOFFICE il clic sul campo seleziona solo il testo, e la lista si apre dalla
+   *  freccina. Ruben (15/11/2026): «se clicco su Calibri per cambiare il font non si
+   *  vede». La lista resta quella di ONLYOFFICE, e scrivendo si cerca come prima. */
+  function apriAlClic() {
+    // Delega sul documento: ONLYOFFICE disegna i due campi nei loro posti quando vuole
+    // (anche dopo che la barra è fatta), e il «⋮» li sposta.
+    document.addEventListener('click', function (e) {
+      var campo = e.target && e.target.closest && e.target.closest('.combobox input.form-control');
+      if (!campo || campo.readOnly || campo.disabled || !campo.closest('#hf-barra, .hf-pop-barra')) return;
+      var c = campo.closest('.combobox');
+      var freccia = c.querySelector('.dropdown-toggle');
+      if (!freccia || c.classList.contains('open') || freccia.classList.contains('disabled')) return;
+      setTimeout(function () {
+        if (c.classList.contains('open')) return;
+        prova(function () { $(freccia).dropdown('toggle'); });
+        campo.focus();
+        campo.select();
+      }, 0);
+    });
+  }
   function gruppo(cose, nome) {
     var g = el('div', { class: 'hf-gruppo', 'data-gruppo': nome || '' });
     cose.forEach(function (x) { if (x) g.appendChild(x); });
     return g.children.length ? g : null;
   }
   function sep() { return el('div', { class: 'hf-sep' }); }
+  /** Un bottone della pelle che apre un menu lo dice (`aria-haspopup`): per i lettori di
+   *  schermo, e per la prova della pelle, che apre e guarda solo quelli. */
+  function conMenu(b) { if (b) b.setAttribute('aria-haspopup', 'menu'); return b; }
   function bottonePelle(ico, titolo, f, classe) {
     var b = el('button', { type: 'button', class: 'hf-bottone' + (classe ? ' ' + classe : ''), title: titolo, 'aria-label': titolo }, svg(ico));
     b.addEventListener('mousedown', function (e) { e.preventDefault(); });
@@ -837,6 +903,8 @@
     var b = bottonePelle(ico, titolo, function () {
       if (pop.style.display !== 'none') { pop.style.display = 'none'; b.classList.remove('aperto'); return; }
       chiudiMenu(0);
+      // In fondo al body: un cassetto aperto dal «⋮» deve stare sopra il «⋮».
+      document.body.appendChild(pop);
       pop.style.display = 'flex';
       posiziona(pop, b, 'sotto');
       b.classList.add('aperto');
@@ -850,6 +918,7 @@
       if (e.target.closest('.dropdown-toggle')) return;
       setTimeout(function () { pop.style.display = 'none'; b.classList.remove('aperto'); }, 0);
     });
+    conMenu(b);
     b.pop = pop;
     return b;
   }
@@ -888,7 +957,17 @@
     Array.prototype.slice.call(barra.querySelectorAll('.hf-sep.hf-nascosto')).forEach(function (s) { s.classList.remove('hf-nascosto'); });
     var gruppi = Array.prototype.slice.call(barra.querySelectorAll(':scope > .hf-gruppo:not(.hf-fisso)'));
     altro.parentNode.style.display = 'none';
-    var spazio = function () { return barra.scrollWidth <= barra.clientWidth + 1; };
+    // Ci sta se l'ultimo bottone finisce dentro la barra. Si misurano i bottoni e non
+    // la scatola (scrollWidth): la barra non taglia più (le tendine devono uscire), e
+    // una tendina aperta allargherebbe la misura.
+    var spazio = function () {
+      var b = barra.getBoundingClientRect();
+      var fine = b.right - (parseFloat(getComputedStyle(barra).paddingRight) || 0) + 1;
+      return Array.prototype.every.call(barra.children, function (x) {
+        var r = x.getBoundingClientRect();
+        return !r.width || r.right <= fine;
+      });
+    };
     pulisciLinee(barra);
     if (spazio()) return;
     altro.parentNode.style.display = '';
@@ -948,6 +1027,7 @@
     if (vecchia) vecchia.classList.add('hf-parcheggio');
 
     prova(function () { editor.barra(barra); });
+    prova(apriAlClic);
     // Il «⋮» per quello che non ci sta.
     var altroPop = el('div', { class: 'hf-pop hf-pop-barra', style: 'display:none;flex-wrap:wrap;max-width:420px' });
     document.body.appendChild(altroPop);
@@ -961,6 +1041,7 @@
       altro.classList.add('aperto');
     });
     altro.id = 'hf-altro';
+    conMenu(altro);
     altro.pop = altroPop;
     document.addEventListener('mousedown', function (e) {
       if (altroPop.style.display === 'none' || altroPop.contains(e.target) || altro.contains(e.target)) return;
@@ -1550,7 +1631,7 @@
 
     function barra(b) {
       var t = tb();
-      var cerca = bottonePelle('cerca', 'Cerca nei menu (Alt+/)', cercaNeiMenu);
+      var cerca = conMenu(bottonePelle('cerca', 'Cerca nei menu (Alt+/)', cercaNeiMenu));
       cerca.id = 'hf-cerca-menu-bottone';
       b.appendChild(gruppo([cerca, sposta('slot-btn-undo'), sposta('slot-btn-redo'), stampa(), sposta('slot-btn-copystyle')], 'base'));
       tZoom = tendina('100%', '40px', zoomVoci, 'Zoom');
@@ -1576,6 +1657,7 @@
         { t: 'Carica dal computer', f: immagine('file') },
         { t: 'Da un indirizzo web', f: immagine('url') },
       ], x, 0, 'sotto'); });
+      conMenu(im);
       b.appendChild(gruppo([lk, cm, im], 'inserisci'));
       b.appendChild(sep());
       bAllinea = cassetto('sinistra', 'Allinea', ['slot-btn-align-left', 'slot-btn-align-center', 'slot-btn-align-right', 'slot-btn-align-just']);
@@ -1769,7 +1851,7 @@
     }
 
     function barra(b) {
-      var cerca = bottonePelle('cerca', 'Cerca nei menu (Alt+/)', cercaNeiMenu);
+      var cerca = conMenu(bottonePelle('cerca', 'Cerca nei menu (Alt+/)', cercaNeiMenu));
       cerca.id = 'hf-cerca-menu-bottone';
       b.appendChild(gruppo([cerca, sposta('slot-btn-undo'), sposta('slot-btn-redo'), stampa(), sposta('slot-btn-copystyle')], 'base'));
       tZoom = tendina('100%', '40px', zoomVoci, 'Zoom');
@@ -1792,7 +1874,7 @@
       b.appendChild(sep());
       var lk = bottonePelle('link', 'Inserisci link (Ctrl+K)', function () { premi(tb().btnInsertHyperlink); });
       var cm = G.opz.canComments ? bottonePelle('commento', 'Aggiungi commento', aggiungiCommento) : null;
-      var gr = bottonePelle('grafico', 'Inserisci grafico', function (x) { apriMenuDi(tb().btnInsertChart, x, 'tl-bl'); });
+      var gr = conMenu(bottonePelle('grafico', 'Inserisci grafico', function (x) { apriMenuDi(tb().btnInsertChart, x, 'tl-bl'); }));
       var filtro = prova(function () { return tb().btnsSetAutofilter[0].$el.closest('[id^=slot-],.btn-slot')[0]; });
       b.appendChild(gruppo([lk, cm, gr, filtro ? sposta(filtro) : null, sposta('slot-btn-formula')], 'inserisci'));
     }
@@ -1917,12 +1999,12 @@
     }
 
     function barra(b) {
-      var cerca = bottonePelle('cerca', 'Cerca nei menu (Alt+/)', cercaNeiMenu);
+      var cerca = conMenu(bottonePelle('cerca', 'Cerca nei menu (Alt+/)', cercaNeiMenu));
       cerca.id = 'hf-cerca-menu-bottone';
       // «Nuova diapositiva» come nella barra degli editor web: il «+» la aggiunge, la
       // freccina accanto apre i layout di ONLYOFFICE.
       var piu = G.modifica ? bottonePelle('piu', 'Nuova diapositiva (Ctrl+M)', nuovaDiapositiva) : null;
-      var layout = G.modifica ? bottonePelle('giu', 'Nuova diapositiva con un layout', function (x) { apriMenuDi(tb().btnAddSlide, x, 'tl-bl'); }, 'hf-freccina') : null;
+      var layout = G.modifica ? conMenu(bottonePelle('giu', 'Nuova diapositiva con un layout', function (x) { apriMenuDi(tb().btnAddSlide, x, 'tl-bl'); }, 'hf-freccina')) : null;
       b.appendChild(gruppo([cerca, piu, layout, sposta('slot-btn-undo'), sposta('slot-btn-redo'), stampa(), sposta('slot-btn-copystyle')], 'base'));
       tZoom = tendina('Adatta', '48px', zoomVoci, 'Zoom');
       b.appendChild(gruppo([tZoom], 'zoom'));
@@ -1932,7 +2014,8 @@
         { t: 'Carica dal computer', f: immagine('file') },
         { t: 'Da un indirizzo web', f: immagine('url') },
       ], x, 0, 'sotto'); });
-      var fo = bottonePelle('forma', 'Forma', function (x) { apriMenuDi(forma(), x, 'tl-bl'); });
+      conMenu(im);
+      var fo = conMenu(bottonePelle('forma', 'Forma', function (x) { apriMenuDi(forma(), x, 'tl-bl'); }));
       var tx = bottonePelle('testo', 'Casella di testo', function () { premi(tb().btnsInsertText); });
       b.appendChild(gruppo([tx, im, fo], 'inserisci'));
       b.appendChild(sep());

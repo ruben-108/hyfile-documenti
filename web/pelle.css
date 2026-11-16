@@ -78,6 +78,21 @@ body.hf-pelle #toolbar > .toolbar.hf-parcheggio {
   pointer-events: none !important;
 }
 body.hf-pelle #toolbar > .toolbar.hf-parcheggio .box-controls .panel { display: flex !important; }
+/* Ogni scheda del parcheggio larga quanto i suoi bottoni, non quanto il parcheggio: ONLYOFFICE
+   misura la scheda attiva contro la sua scatola, e una scheda stirata a tutta larghezza per lui
+   «non ci sta» mai. Allora spostava i gruppi nel suo «Altro» e a ogni spostamento chiudeva
+   tutti i menu aperti: in Fogli, a finestra stretta, un menu aperto da una voce della pelle
+   a volte spariva (prova della pelle, 16/11/2026). */
+body.hf-pelle #toolbar > .toolbar.hf-parcheggio .box-panels > .panel { flex: 0 0 auto !important; width: max-content !important; max-width: none !important; }
+/* Se ONLYOFFICE sposta comunque dei gruppi nel suo «Altro» (`.more-container`, un menu
+   chiuso, `display: none`), i bottoni lì dentro non aprivano più i loro menu dalle voci
+   della pelle (Fogli a 980 px: «Formattazione condizionale», «Righe, colonne e fogli»).
+   Nel parcheggio quel contenitore c'è sempre, invisibile: i menu dei suoi bottoni sono
+   «fixed» e si vedono lo stesso. */
+body.hf-pelle .hf-parcheggio .more-container {
+  display: block !important; position: fixed !important; left: -6000px !important; top: 0 !important;
+  visibility: hidden !important;
+}
 body.hf-pelle .hf-parcheggio .dropdown-menu,
 body.hf-pelle .hf-parcheggio .dropdown-menu * { visibility: visible; pointer-events: auto; }
 body.hf-pelle #app-title { display: none !important; }
@@ -188,8 +203,14 @@ body.hf-pelle #left-menu .left-panel { padding-left: 0 !important; padding-right
 #hf-barra {
   display: flex; align-items: center; height: 40px; box-sizing: border-box;
   margin: 0 16px; padding: 0 8px; border-radius: 20px; background: var(--hf-barra);
-  font-family: var(--hf-font); color: var(--hf-testo); overflow: hidden; position: relative;
+  font-family: var(--hf-font); color: var(--hf-testo); overflow: visible; position: relative;
 }
+/* Mai `overflow: hidden` qui né nei cassetti: le tendine di ONLYOFFICE (caratteri,
+   dimensione, colori, interlinea…) nascono dentro il loro bottone, e una scatola che
+   taglia le nascondeva. Con la barra tagliata la lista di «Calibri» si apriva sotto
+   il bordo e non si vedeva (Ruben, 15/11/2026). Quello che non ci sta lo porta nel «⋮»
+   `adatta()`, che misura i bottoni, non la scatola. La prova della pelle apre ogni
+   tendina e guarda che si veda davvero (strumenti/prova_pelle.py). */
 #hf-barra .hf-gruppo { display: flex; align-items: center; flex: none; gap: 1px; }
 #hf-barra .hf-gruppo.hf-nascosto, #hf-barra .hf-sep.hf-nascosto { display: none; }
 #hf-barra .hf-sep { width: 1px; height: 20px; background: #c7c7c7; margin: 0 6px; flex: none; }
@@ -252,7 +273,11 @@ body.hf-pelle #left-menu .left-panel { padding-left: 0 !important; padding-right
   padding: 6px 0; min-width: 220px; max-height: calc(100vh - 16px); overflow-y: auto;
   font: 400 14px/20px var(--hf-font); color: var(--hf-testo); box-sizing: border-box;
 }
-.hf-pop.hf-pop-barra { padding: 4px; min-width: 0; display: flex; gap: 2px; align-items: center; border-radius: 8px; }
+.hf-pop.hf-pop-barra { padding: 4px; min-width: 0; display: flex; gap: 2px; align-items: center; border-radius: 8px; overflow: visible; max-height: none; }
+/* Un cassetto chiuso che presta un suo bottone a una voce dei menu (pelle.js, apriMenuDi):
+   c'è, ma fuori dallo schermo e invisibile; il menu del bottone sì che si vede. */
+.hf-pop.hf-pop-barra.hf-palco { display: flex !important; visibility: hidden; pointer-events: none; left: -10000px !important; top: 0 !important; }
+.hf-palco .dropdown-menu, .hf-palco .dropdown-menu * { visibility: visible; pointer-events: auto; }
 .hf-voce {
   display: flex; align-items: center; gap: 12px; height: 32px; padding: 0 16px 0 12px;
   cursor: pointer; white-space: nowrap; position: relative;
