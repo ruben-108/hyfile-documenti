@@ -602,6 +602,14 @@ body.hf-pelle .dropdown-menu .menu-item-icon, body.hf-pelle .dropdown-menu > li 
 /* La tendina dei caratteri e delle dimensioni: più ariosa. */
 body.hf-pelle .dropdown-menu.scrollable-menu > li > a { padding-left: 16px !important; }
 body.hf-pelle .combobox .dropdown-menu > li > a { padding-left: 16px !important; }
+/* I caratteri restano a 28 px precisi (1.29.0): ONLYOFFICE disegna solo le anteprime
+   delle righe in vista, e quali siano lo calcola dallo scorrimento diviso 28
+   (`listItemHeight` in ComboBoxFonts.js). Righe più alte e più si scorre, più il
+   conto sbaglia: le anteprime finiscono su righe già passate e il resto è bianco. */
+body.hf-pelle .dropdown-menu > li > a.font-item {
+  height: 28px !important; min-height: 0 !important; padding-top: 0 !important; padding-bottom: 0 !important;
+  display: flex !important; align-items: center;
+}
 body.hf-pelle .combobox .dropdown-menu > li > a.checked, body.hf-pelle .combobox .dropdown-menu > li.selected > a,
 body.hf-pelle .combobox .dropdown-menu > li > a.selected { background: var(--hf-premuto) !important; }
 
