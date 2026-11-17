@@ -41,13 +41,32 @@
   // sé (cambia id, e a ONLYOFFICE resta un segnaposto vuoto da togliere) e resta sopra
   // tutto finché la pelle non è costruita. Poi copre solo il foglio, finché il documento
   // non è disegnato. Le fasi stanno sul body: niente → hf-pronta → hf-documento.
-  // Se la pelle si rompe, o dopo 25 secondi, si scopre ONLYOFFICE com'è (hf-ripiego):
-  // mai una pagina ferma.
+  //
+  // ONLYOFFICE non si scopre MAI (1.36.0, Ruben il 17/11/2026: «non si DEVE MAI PIU
+  // VEDERE»). Fino alla 1.35 dopo 25 secondi senza documento la pelle si smontava e si
+  // vedeva ONLYOFFICE col suo logo: su un portatile Windows alla prima apertura (rete
+  // lenta, cache vuota) il documento arrivava dopo, e Ruben se l'è trovato davanti.
+  // Riprodotto su aurora con 3 Mbit e il processore rallentato: pelle pronta a 12 s,
+  // documento oltre i 25. Ora l'attesa resta quella della pelle, e lo dice (`attesa`):
+  // «Apro il documento…» dopo qualche secondo, «Riprova» se va per le lunghe. Se la
+  // pelle stessa non si costruisce (`guasto`) lo scheletro resta, con «Riprova», e la
+  // pagina di HyFile lo scrive nel suo registro (messaggio «diario»).
   var TEMPI = { script: ora() };
   function ora() { return Math.round(window.performance && performance.now ? performance.now() : Date.now()); }
   var TIPO_URL = /spreadsheeteditor/.test(location.pathname) ? 'cell' : /presentationeditor/.test(location.pathname) ? 'slide' : 'word';
   var scheletro = null;
-  var FASE = { pronta: false, documento: false, ripiego: false };
+  var FASE = { pronta: false, documento: false, guasto: false };
+
+  // Il telefono (1.36.0, SPEC §19.11): la stessa pelle, ma disegnata come le app per il
+  // telefono (telefono.js). Lo decide la larghezza, come in HyFile; «Versione per
+  // computer» (dal «⋮» del telefono) resta in questo browser.
+  var TELEFONO = (function () {
+    try { if (localStorage.getItem('hf-pelle-computer') === '1') return false; } catch (e) { /* senza: si guarda la misura */ }
+    return !!(window.matchMedia && window.matchMedia('(max-width: 720px), (pointer: coarse) and (max-height: 520px)').matches);
+  })();
+  document.documentElement.classList.add(TELEFONO ? 'hf-telefono' : 'hf-computer');
+  function sceltoComputer() { try { return localStorage.getItem('hf-pelle-computer') === '1'; } catch (e) { return false; } }
+  function misuraDaTelefono() { return !!(window.matchMedia && window.matchMedia('(max-width: 720px), (pointer: coarse) and (max-height: 520px)').matches); }
 
   function prendiScheletro() {
     var m = document.getElementById('loading-mask');
@@ -67,7 +86,14 @@
       document.body.appendChild(scheletro);
     }
     scheletro.classList.add('hf-sk', 'hf-sk-' + TIPO_URL);
-    document.body.classList.add('hf-tipo-' + TIPO_URL);
+    document.body.classList.add('hf-tipo-' + TIPO_URL, 'hf-avvio');
+    if (TELEFONO) document.body.classList.add('hf-telefono');
+    // Il riquadro delle attese lunghe, nascosto finché non serve (`attesa`, `guasto`).
+    var av = document.createElement('div');
+    av.className = 'hf-sk-avviso';
+    av.setAttribute('role', 'status');
+    av.setAttribute('aria-live', 'polite');
+    scheletro.appendChild(av);
   }
   function togliScheletro() {
     if (!scheletro) return;
@@ -83,30 +109,93 @@
     FASE.pronta = true;
     TEMPI.pronta = ora();
     document.body.classList.add('hf-pronta');
+    try { sessionStorage.removeItem('hf-pelle-riprova'); } catch (e) { /* niente da togliere */ }
     manda({ tipo: 'pronta' });
     mandaPosto();
   }
   /** Il documento è disegnato: via anche il foglio dello scheletro. */
   function documentoPronto() {
-    if (FASE.documento) return;
+    if (FASE.documento || FASE.guasto) return;
     FASE.documento = true;
     TEMPI.documento = ora();
+    document.body.classList.remove('hf-lento', 'hf-fermo', 'hf-avvio');
     document.body.classList.add('hf-documento');
     togliScheletro();
+    // Un'apertura lunga si annota (senza dire niente a chi scrive): se capita spesso, su
+    // che macchine e con che tempi lo dice il registro di HyFile.
+    if (TEMPI.documento - TEMPI.script > LENTO_DA_ANNOTARE) diario('lenta');
   }
-  /** ONLYOFFICE com'è: la pelle non c'è (o è a metà e si toglie), ma si lavora. */
-  function ripiego(perche, errore) {
-    if (FASE.ripiego || (FASE.pronta && FASE.documento)) return;
-    FASE.ripiego = true;
-    TEMPI.ripiego = ora();
+
+  /* ------------------------------------------------------------------ le attese lunghe */
+  // Dopo ATTESA_DETTA lo scheletro dice «Apro il documento…»; dopo ATTESA_LUNGA offre
+  // «Riprova», e si continua ad aspettare: se il documento arriva, l'avviso se ne va da
+  // solo. Niente si scopre.
+  var ATTESA_DETTA = 10000, ATTESA_LUNGA = 45000, LENTO_DA_ANNOTARE = 20000;
+  function avviso(html) {
+    var a = scheletro && scheletro.querySelector('.hf-sk-avviso');
+    if (a) a.innerHTML = html;
+    return a;
+  }
+  function bottoneRiprova(a) {
+    var b = a && a.querySelector('[data-hf-riprova]');
+    if (b) b.addEventListener('click', riprova);
+  }
+  function attesa() {
+    // Si conta solo il tempo senza finestre aperte: una finestra (password, opzioni del CSV)
+    // aspetta chi legge, e allora l'apertura non è lenta.
+    var contato = 0, detta = false, lunga = false, prima = Date.now();
+    var giro = setInterval(function () {
+      var adesso = Date.now(), passo = adesso - prima;
+      prima = adesso;
+      if (FASE.documento || FASE.guasto) { clearInterval(giro); return; }
+      if (document.body.classList.contains('hf-finestra')) return;
+      contato += passo;
+      if (!detta && contato >= ATTESA_DETTA) {
+        detta = true;
+        document.body.classList.add('hf-lento');
+        avviso('<span class="hf-sk-gira" aria-hidden="true"></span><span>Apro il documento…</span>');
+      }
+      if (!lunga && contato >= ATTESA_LUNGA) {
+        lunga = true;
+        document.body.classList.add('hf-fermo');
+        bottoneRiprova(avviso('<span class="hf-sk-gira" aria-hidden="true"></span>' +
+          '<span>Il documento ci sta mettendo più del solito.</span>' +
+          '<button type="button" data-hf-riprova>Riprova</button>'));
+        diario('ferma');
+      }
+    }, 500);
+  }
+  /** La pelle non si è costruita (un'eccezione nel montarla): lo scheletro resta, con
+   *  «Riprova». La prima volta riprova da sola, una volta per scheda (sessionStorage). */
+  function guasto(perche, errore) {
+    if (FASE.guasto || FASE.pronta) return;
+    FASE.guasto = true;
+    TEMPI.guasto = ora();
     TEMPI.perche = perche;
-    if (errore && window.console) console.warn('pelle-hyfile: ripiego', perche, errore);
-    prova(smonta);
-    document.body.classList.add('hf-pronta', 'hf-documento', 'hf-ripiego');
-    togliScheletro();
-    if (!FASE.pronta) { FASE.pronta = true; manda({ tipo: 'pronta' }); }
+    if (window.console) console.warn('pelle-hyfile: guasto', perche, errore);
+    diario('guasto', errore ? String(errore && errore.stack || errore).slice(0, 400) : perche);
+    document.body.classList.remove('hf-lento', 'hf-fermo');
+    document.body.classList.add('hf-guasto');
+    var gia = 0;
+    try { gia = Number(sessionStorage.getItem('hf-pelle-riprova') || 0); sessionStorage.setItem('hf-pelle-riprova', String(gia + 1)); } catch (e) { gia = 1; }
+    if (gia < 1) { setTimeout(riprova, 600); return; }
+    bottoneRiprova(avviso('<span>L’editor non si è aperto come doveva.</span><button type="button" data-hf-riprova>Riprova</button>'));
   }
-  setTimeout(function () { if (!FASE.pronta || !FASE.documento) ripiego('tempo'); }, 25000);
+  /** Ricomincia: la pagina di HyFile rifà l'editor con una configurazione nuova; senza
+   *  pagina sopra (o una pagina di prima della 1.36.0, che non lo sa fare) si ricarica il
+   *  riquadro, e api.js gli ridà la configurazione. */
+  function riprova() {
+    var prima = location.href;
+    manda({ tipo: 'ricarica' });
+    setTimeout(function () { if (location.href === prima) location.reload(); }, 2500);
+  }
+  /** Annota nel registro di HyFile (la pagina lo manda al server): mai il contenuto del
+   *  documento, solo i tempi, il perché e la misura dello schermo. */
+  function diario(cosa, dettaglio) {
+    manda({ tipo: 'diario', cosa: cosa, dettaglio: dettaglio ? String(dettaglio).slice(0, 400) : '',
+      tempi: TEMPI, telefono: TELEFONO, misura: window.innerWidth + 'x' + window.innerHeight,
+      scala: Math.round((window.devicePixelRatio || 1) * 100) / 100 });
+  }
 
   /* ------------------------------------------------------------------ parlare con HyFile */
   // Il protocollo con la pagina /editor/<id> di HyFile (SPEC §19.6): la pelle dice quando
@@ -118,8 +207,10 @@
     try { if (window.parent && window.parent !== window) window.parent.postMessage(o, '*'); } catch (e) { /* nessuna pagina sopra */ }
   }
   function rettangoloPosto() {
+    // Sul telefono la testata non ha posto per i bottoni di HyFile: il «⋮» porta a HyFile.
+    if (TELEFONO && !(G && G.computerSuTelefono)) return { x: 0, y: 0, larghezza: 0, altezza: 0 };
     var p = document.getElementById('hf-posto-hyfile');
-    if (p && FASE.pronta && !FASE.ripiego) {
+    if (p && FASE.pronta) {
       var r = p.getBoundingClientRect();
       return { x: r.left, y: r.top, larghezza: r.width, altezza: r.height };
     }
@@ -146,8 +237,9 @@
       document.documentElement.style.setProperty('--hf-posto', l + 'px');
       var p = document.getElementById('hf-posto-hyfile');
       if (p) p.style.width = l + 'px';
-      prova(function () { document.getElementById('hf-titolo').allarga(); });
-      prova(adatta);
+      var ti = document.getElementById('hf-titolo');
+      if (ti && ti.allarga) prova(function () { ti.allarga(); });
+      if (document.getElementById('hf-barra')) prova(adatta);
       mandaPosto(true);
     } else if (d.tipo === 'chiedi-posto') {
       mandaPosto(true);
@@ -170,12 +262,11 @@
       if (APP && window.Common && Common.NotificationCenter && window.$) {
         var costruita = false;
         var costruisci = function () {
-          if (costruita || FASE.ripiego) return;
+          if (costruita || FASE.guasto) return;
           costruita = true;
           TEMPI.faccia = ora();
           setTimeout(function () {
-            try { avvia(APP); } catch (e) { ripiego('errore', e); return; }
-            if (FASE.ripiego) return;
+            try { avvia(APP); } catch (e) { guasto('errore', e); return; }
             scopri();
             if (G.documentoPronto) prova(finisci);
           }, 0);
@@ -185,28 +276,44 @@
         Common.NotificationCenter.on('document:ready', function () {
           G.documentoPronto = true;
           TEMPI.docpronto = ora();
-          if (FASE.pronta && !FASE.ripiego) setTimeout(function () { prova(finisci); }, 0);
+          if (FASE.pronta) setTimeout(function () { prova(finisci); }, 0);
         });
         // La barra c'è già (la pelle è arrivata tardi): subito.
         if (window.editor_elements_prepared && prova(function () { return APP.getController('Toolbar').toolbar.$el.find('[id^=slot-]').length; }, 0)) costruisci();
         return;
       }
-      if (giri++ < 800) setTimeout(guarda, 25);
+      // Su una rete lenta ONLYOFFICE può arrivare dopo molti secondi: si continua a guardare
+      // (più di rado dopo i primi 20 s), e intanto le attese le dice lo scheletro.
+      giri++;
+      if (giri < 800) setTimeout(guarda, 25);
+      else if (giri < 3200) setTimeout(guarda, 250);
     })();
   }
-  // Un errore di ONLYOFFICE prima della pelle (un documento che non si apre) non deve
-  // restare sotto lo scheletro: si scopre tutto, e si legge.
+  // Una finestra di ONLYOFFICE mentre si apre (la password di un documento protetto, le
+  // opzioni di un CSV, un errore) si mostra sopra lo scheletro, ridisegnata come i dialoghi
+  // della pelle (`hf-finestra` sul body alza finestre e velo): si risponde lì, e l'apertura
+  // va avanti. Fino alla 1.35 la finestra scopriva tutto ONLYOFFICE.
+  function finestraAperta() {
+    // Non offsetParent: le finestre di ONLYOFFICE sono «fixed», e lì vale sempre null.
+    var w = document.querySelector('body > .asc-window.modal, body > .asc-window.alert');
+    if (!w) return null;
+    var r = w.getBoundingClientRect();
+    return r.width > 0 && r.height > 0 && getComputedStyle(w).visibility !== 'hidden' ? w : null;
+  }
   function guardaFinestre() {
-    if (!window.MutationObserver) return;
-    var mo = new MutationObserver(function () {
-      if (FASE.pronta && FASE.documento) { mo.disconnect(); return; }
-      var w = document.querySelector('body > .asc-window.modal, body > .asc-window.alert');
-      if (w && w.offsetParent !== null && !FASE.ripiego) {
-        if (!FASE.pronta) ripiego('finestra');
-        else documentoPronto();
+    var vista = false, giri = 0;
+    (function guarda() {
+      if (FASE.pronta && FASE.documento) { document.body.classList.remove('hf-finestra'); return; }
+      var w = finestraAperta();
+      document.body.classList.toggle('hf-finestra', !!w);
+      if (w && !vista) {
+        vista = true;
+        diario('finestra', prova(function () { return (w.querySelector('.header .title') || {}).textContent || ''; }, '') +
+          ' ' + prova(function () { return (w.querySelector('.body') || {}).textContent || ''; }, '').replace(/\s+/g, ' ').slice(0, 200));
       }
-    });
-    mo.observe(document.body, { childList: true });
+      if (!w) vista = false;
+      if (giri++ < 2400) setTimeout(guarda, 250);
+    })();
   }
 
   /* ------------------------------------------------------------------ icone */
@@ -261,6 +368,7 @@
     indietro: 'M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z',
     su: 'M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z',
     giu2: 'M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z',
+    telefono: 'M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z',
   };
   function svg(nome, classe) {
     var d = ICONE[nome] || '';
@@ -990,7 +1098,9 @@
   }
 
   /* ------------------------------------------------------------------ avvio */
-  function avvia(APP) {
+  /** Quello che serve a tutte e due le pelli (computer e telefono): chi scrive, cosa può
+   *  fare, i ganci in ONLYOFFICE. */
+  function prepara(APP) {
     var main = APP.getController('Main');
     var opz = main.appOptions || {};
     G.APP = APP;
@@ -1003,18 +1113,29 @@
     G.commenta = !G.modifica && !!opz.canComments && !!(opz.isRestrictedEdit || opz.canCoAuthoring);
     G.utenteId = opz.user && opz.user.id;
     G.tb = prova(function () { return APP.getController('Toolbar').toolbar; });
-    var editor = EDITOR[G.TIPO];
-    if (!editor || !G.tb) throw new Error('manca la barra di ONLYOFFICE');
-
+    if (!EDITOR[G.TIPO] || !G.tb) throw new Error('manca la barra di ONLYOFFICE');
+    G.titolo = (main.document || {}).title || prova(function () { return G.api.asc_getDocumentName(); }, '') || '';
     document.body.classList.add('hf-pelle', 'hf-pelle-' + G.TIPO);
     prova(function () { Common.UI.Themes.setTheme('theme-white'); });
+  }
 
+  function avvia(APP) {
+    prepara(APP);
+    if (TELEFONO && window.pelleTelefono) {
+      G.telefono = true;
+      window.pelleTelefono.avvia(interno());
+      prova(ascoltaStato);
+      return;
+    }
+    // Sul telefono senza telefono.js (non arrivato): la pelle per computer, coi suoi bottoni.
+    if (TELEFONO) G.computerSuTelefono = true;
+    var opz = G.opz;
+    var editor = EDITOR[G.TIPO];
     MENU = editor.menu();
-    var doc = main.document || {};
     var cima = document.getElementById('toolbar');
     var vecchia = cima.querySelector(':scope > .toolbar') || cima.firstElementChild;
     var testa = testata({
-      titolo: doc.title || prova(function () { return G.api.asc_getDocumentName(); }, '') || '',
+      titolo: G.titolo,
       rinomina: !!opz.canRename && G.modifica,
       condividi: opz.canRequestSharingSettings ? function () { Common.Gateway.requestSharingSettings(); } : null,
       storia: opz.canUseHistory ? apriStoria : null,
@@ -1068,7 +1189,15 @@
     prova(function () { editor.dopo && editor.dopo(); });
     prova(chiudiPannelloDestro);
 
-    // Salvataggio, persone, titolo.
+    prova(ascoltaStato);
+    var tAdatta = null;
+    window.addEventListener('resize', function () { clearTimeout(tAdatta); tAdatta = setTimeout(function () { adatta(); prova(function () { document.getElementById('hf-titolo').allarga(); }); mandaPosto(); }, 60); });
+    setTimeout(adatta, 50);
+    G.editor = editor;
+  }
+
+  /** Salvataggio, persone, titolo: lo stato in testata segue ONLYOFFICE (tutte e due le pelli). */
+  function ascoltaStato() {
     mettiStato(statoDiSerie());
     prova(function () {
       G.api.asc_registerCallback('asc_onStartAction', function (tipo, id) {
@@ -1079,8 +1208,10 @@
       });
       G.api.asc_registerCallback('asc_onCoAuthoringDisconnect', function () { mettiStato('offline'); });
       G.api.asc_registerCallback('asc_onMeta', function (meta) {
+        if (meta && meta.title) G.titolo = meta.title;
         var t = document.getElementById('hf-titolo');
         if (t && meta && meta.title && document.activeElement !== t) { t.value = senzaEstensione(meta.title); t.allarga && t.allarga(); }
+        if (G.telefono && meta && meta.title) prova(function () { window.pelleTelefono.titolo(meta.title); });
       });
       G.api.asc_registerCallback('asc_onAuthParticipantsChanged', function (u) { mettiGente(u); });
       Common.NotificationCenter.on('pelle:commenti', function (aperto) { segnaCommenti(!!aperto); });
@@ -1088,16 +1219,17 @@
       prova(function () { lm().leftMenu.btnComments.on('toggle', function () { if (!window.pelleCommenti) segnaCommenti(); }); });
       G.api.asc_registerCallback('asc_onParticipantsChanged', function (u) { mettiGente(u); });
     });
-    var tAdatta = null;
-    window.addEventListener('resize', function () { clearTimeout(tAdatta); tAdatta = setTimeout(function () { adatta(); prova(function () { document.getElementById('hf-titolo').allarga(); }); mandaPosto(); }, 60); });
-    setTimeout(adatta, 50);
-    G.editor = editor;
   }
 
   /** Quello che nasce col documento: i menu della barra, il pannello a destra, le facce. */
   function finisci() {
     if (G.finito) return;
     G.finito = true;
+    if (G.telefono) {
+      prova(function () { window.pelleTelefono.documento(); });
+      setTimeout(documentoPronto, 60);
+      return;
+    }
     var editor = G.editor || {};
     prova(function () { editor.pronto && editor.pronto(); });
     prova(rifaiMenu);
@@ -1144,27 +1276,11 @@
     setTimeout(adatta, 30);
   }
   document.addEventListener('keydown', function (e) {
-    if (FASE.pronta && !FASE.ripiego && (e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'F' || e.key === 'f')) {
+    if (FASE.pronta && !G.telefono && (e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'F' || e.key === 'f')) {
       e.preventDefault(); e.stopPropagation();
       compattaTestata(!document.body.classList.contains('hf-compatta'));
     }
   }, true);
-
-  /** Tolta la pelle a metà (ripiego): ONLYOFFICE torna com'era. */
-  function smonta() {
-    ['hf-testa', 'hf-barra'].forEach(function (id) { var e = document.getElementById(id); e && e.remove(); });
-    Array.prototype.forEach.call(document.querySelectorAll('.hf-pop'), function (e) { e.remove(); });
-    var p = document.querySelector('.hf-parcheggio');
-    p && p.classList.remove('hf-parcheggio');
-    document.body.classList.remove('hf-pelle', 'hf-pelle-word', 'hf-pelle-cell', 'hf-pelle-slide');
-    if (G.altezza) prova(function () {
-      G.altezza.forEach(function (x) { delete x.p.height; x.p.height = x.h; });
-      G.altezza = null;
-      var vp = G.APP.getController('Viewport');
-      (vp.viewport || vp.getView('Viewport')).vlayout.doLayout();
-      Common.NotificationCenter.trigger('layout:changed', 'toolbar');
-    });
-  }
 
   /** L'altezza della parte in alto (testata + barra), che ONLYOFFICE rispetta nel suo layout. */
   var ALTO = 64 + 40 + 8;
@@ -1438,6 +1554,9 @@
       '-',
       { t: 'Cronologia delle versioni', ico: 'storia', se: function () { return !!o.canUseHistory; }, f: apriStoria },
       { t: 'Dettagli', ico: 'info', f: function () { lm().leftMenu.showMenu('file:info'); } },
+      // Chi sul telefono ha scelto «Versione per computer» torna indietro da qui (1.36.0).
+      { t: 'Versione per telefono', ico: 'telefono', se: function () { return sceltoComputer() && misuraDaTelefono(); },
+        f: function () { try { localStorage.removeItem('hf-pelle-computer'); } catch (e) { return; } riprova(); } },
       '-',
     ].concat(extra.dopo || []).concat([
       '-',
@@ -1882,10 +2001,14 @@
     function dopo() {
       prova(function () {
         G.api.asc_registerCallback('asc_onZoomChanged', function (z) { tZoom && tZoom.metti(Math.round(z * 100) + '%'); });
-        tZoom && tZoom.metti(Math.round(G.api.asc_getZoom() * 100) + '%');
       });
     }
-    return { menu: menu, barra: barra, dopo: dopo };
+    // Lo zoom si legge a foglio caricato: prima ONLYOFFICE non ha ancora la cartella di
+    // lavoro e `asc_getZoom` si rompe (un avviso in console a ogni apertura, fino alla 1.35).
+    function pronto() {
+      prova(function () { tZoom && tZoom.metti(Math.round(G.api.asc_getZoom() * 100) + '%'); });
+    }
+    return { menu: menu, barra: barra, dopo: dopo, pronto: pronto };
   })();
 
   /* ================================================================== PRESENTAZIONI */
@@ -2068,10 +2191,11 @@
       }));
     },
     get documento() { return FASE.documento; },
-    get ripiego() { return FASE.ripiego; },
+    get guasto() { return FASE.guasto; },
+    get telefono() { return !!G.telefono; },
     verifica: function () {
       var fuori = { ok: [], vuote: [], saltate: [] };
-      var SALTA = /^(Stampa|Nuovo|Condividi|Rinomina|Apri la cartella|Cronologia|Dettagli|Guida|Scorciatoie|Cerca nei menu|Informazioni|Preferenze|Lingua|Conteggio|Elimina diapositiva|Dall|Da questa|Con la vista|Adatta|\d+%|Documento|Microsoft|Foglio Open|Presentazione Open|Valori|Formato RTF|Testo normale \(|Pagina web|Libro|Immagine PNG|Immagine JPEG|Mostra|Note del|Righelli|Barra della|Griglia|Intestazioni di|Controllo ortografico|Rileva|Modifica$|Suggerimento|Altri formati|Pannello)/;
+      var SALTA = /^(Stampa|Versione per|Nuovo|Condividi|Rinomina|Apri la cartella|Cronologia|Dettagli|Guida|Scorciatoie|Cerca nei menu|Informazioni|Preferenze|Lingua|Conteggio|Elimina diapositiva|Dall|Da questa|Con la vista|Adatta|\d+%|Documento|Microsoft|Foglio Open|Presentazione Open|Valori|Formato RTF|Testo normale \(|Pagina web|Libro|Immagine PNG|Immagine JPEG|Mostra|Note del|Righelli|Barra della|Griglia|Intestazioni di|Controllo ortografico|Rileva|Modifica$|Suggerimento|Altri formati|Pannello)/;
       (function giro(voci, via) {
         visibili(voci).forEach(function (v) {
           if (v === '-') return;
@@ -2089,7 +2213,25 @@
     },
   };
 
+  /** Gli attrezzi della pelle che servono a telefono.js (stesso programma, un altro file). */
+  function interno() {
+    return {
+      G: G, ICONE: ICONE, svg: svg, el: el, esc: esc, prova: prova, c: c, bottone: bottone,
+      premi: premi, scegli: scegli, voceDi: voceDi, apriMenuDi: apriMenuDi, chiudiMenuOO: chiudiMenuOO,
+      manda: manda, mettiStato: mettiStato, statoDiSerie: statoDiSerie, altezza: altezza,
+      aggiungiCommento: aggiungiCommento, apriCommenti: apriCommenti, segnaCommenti: segnaCommenti,
+      scarica: scarica, conteggioParole: conteggioParole, legale: legale, lm: lm, zoomA: zoomA,
+      rimettiFuoco: rimettiFuoco, senzaBarraDiStato: senzaBarraDiStato, senzaEstensione: senzaEstensione,
+      logo: logo, spuntata: spuntata, giraCasella: giraCasella, riprova: riprova, diario: diario,
+      apriStoria: apriStoria,
+    };
+  }
+
   try { prendiScheletro(); } catch (e) { if (window.console) console.warn('pelle-hyfile', e); }
+  // La pagina di HyFile copre l'iframe col suo scheletro finché non sa che la pelle c'è:
+  // da qui in poi lo scheletro è il nostro (identico), e le attese le dice la pelle.
+  manda({ tipo: 'vivo', telefono: TELEFONO });
   guardaFinestre();
+  attesa();
   quandoPronto();
 })();

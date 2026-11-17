@@ -2,7 +2,8 @@
 # La pelle di HyFile sopra ONLYOFFICE Docs (SPEC §19.5). Gira come punto d'ingresso del
 # contenitore: aggiunge ai tre editor (documenti, fogli, presentazioni) una riga che
 # carica pelle.css e pelle.js (e dopo di loro commenti.css e commenti.js, le schede dei
-# commenti, SPEC §19.7), poi passa la mano all'avvio di sempre di ONLYOFFICE.
+# commenti, SPEC §19.7, e telefono.css e telefono.js, la pelle per il telefono, SPEC
+# §19.11), poi passa la mano all'avvio di sempre di ONLYOFFICE.
 #
 # Perché così e non con una copia degli index.html: a ogni immagine nuova di ONLYOFFICE
 # gli index.html cambiano, la riga si rimette da sola. Rilanciarlo non raddoppia niente
@@ -13,7 +14,7 @@ WEB=/var/www/onlyoffice/documentserver/web-apps/apps
 PELLE=$WEB/common/main/resources/pelle-hyfile
 if [ -f "$PELLE/pelle.js" ]; then
   # L'impronta conta tutti i file della pelle: cambia uno, cambia il «?v=».
-  V=$(cat "$PELLE"/pelle.css "$PELLE"/pelle.js "$PELLE"/commenti.css "$PELLE"/commenti.js 2>/dev/null | md5sum | cut -c1-10)
+  V=$(cat "$PELLE"/pelle.css "$PELLE"/pelle.js "$PELLE"/commenti.css "$PELLE"/commenti.js "$PELLE"/telefono.css "$PELLE"/telefono.js 2>/dev/null | md5sum | cut -c1-10)
   R=../../common/main/resources/pelle-hyfile
   for ED in documenteditor spreadsheeteditor presentationeditor; do
     F=$WEB/$ED/main/index.html
@@ -26,6 +27,10 @@ if [ -f "$PELLE/pelle.js" ]; then
     # I commenti dopo la pelle (stesso ordine per i fogli di stile e per i programmi).
     if [ -f "$PELLE/commenti.js" ]; then
       RIGA="$RIGA<link rel=\"stylesheet\" href=\"$R/commenti.css?v=$V\" data-pelle-hyfile><script src=\"$R/commenti.js?v=$V\" data-pelle-hyfile defer></script>"
+    fi
+    # Il telefono (1.36.0) dopo tutti: usa gli attrezzi di pelle.js e sta sopra ai commenti.
+    if [ -f "$PELLE/telefono.js" ]; then
+      RIGA="$RIGA<link rel=\"stylesheet\" href=\"$R/telefono.css?v=$V\" data-pelle-hyfile><script src=\"$R/telefono.js?v=$V\" data-pelle-hyfile defer></script>"
     fi
     sed -i "s#</head>#$RIGA\n</head>#" "$F"
     # ONLYOFFICE comprime le pagine (index.html.gz) solo al primo avvio, e nginx serve

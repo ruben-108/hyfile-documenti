@@ -324,8 +324,8 @@ body.hf-pelle #left-menu { border-right: 0 !important; }
 /* Il pannello a destra resta quello di ONLYOFFICE: chiuso all'avvio (hideRightMenu), si apre
    da Visualizza > Pannello delle proprietà, con le sue icone. */
 body.hf-pelle .dropdown-menu { border-radius: 4px; border: 0 !important; box-shadow: var(--hf-ombra) !important; }
-body.hf-pelle .asc-window { border-radius: 8px; border: 0; box-shadow: var(--hf-ombra); }
-body.hf-pelle .asc-window .header { border-radius: 8px 8px 0 0; }
+body:is(.hf-pelle, .hf-avvio) .asc-window { border-radius: 8px; border: 0; box-shadow: var(--hf-ombra); }
+body:is(.hf-pelle, .hf-avvio) .asc-window .header { border-radius: 8px 8px 0 0; }
 
 /* ---------------------------------------------------------------- presentazioni e fogli */
 .hf-presenta {
@@ -485,6 +485,59 @@ body.hf-pelle-cell #cell-editing-box { border-top: 1px solid #e1e3e1 !important;
     no-repeat right 368px top 8px / 24px 24px var(--sk-storia);
 }
 
+/* Il telefono (1.36.0, telefono.js): la barra da 56 della pelle per il telefono (freccia,
+   nome e stato, commenti, Condividi, «⋮»), niente barra a pillola, il foglio a tutta
+   larghezza (ONLYOFFICE lo adatta alla larghezza: da x 24, a destra resta la striscia di
+   14 della barra di scorrimento), la griglia sotto la barra della formula da 40, la
+   diapositiva a tutta larghezza in mezzo. Misurato su aurora a 412×839. La stessa regola
+   di pelle.js: misura stretta, o dito con lo schermo basso; «Versione per computer»
+   mette hf-computer sulla radice e torna lo scheletro di sopra. */
+@media (max-width: 720px), (pointer: coarse) and (max-height: 520px) {
+  html:not(.hf-computer) :where(#loading-mask:not(.hf-finta), #hf-scheletro) {
+    --sk-indietro: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23444746' d='M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z'/%3E%3C/svg%3E");
+    --sk-persona: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23444746' d='M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E");
+    --sk-altro: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23444746' d='M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z'/%3E%3C/svg%3E");
+  }
+  html:not(.hf-computer) :where(#loading-mask:not(.hf-finta), #hf-scheletro) > .brendpanel { height: 56px !important; }
+  html:not(.hf-computer) :where(#loading-mask:not(.hf-finta), #hf-scheletro) > .brendpanel::before { left: 56px; top: 13px; width: 150px; height: 16px; }
+  html:not(.hf-computer) :where(#loading-mask:not(.hf-finta), #hf-scheletro) > .brendpanel::after { left: 56px; top: 35px; width: 96px; height: 10px; border-radius: 5px; }
+  html:not(.hf-computer) :where(#loading-mask:not(.hf-finta), #hf-scheletro) > .sktoolbar:not(#sktoolbar-pdf) { display: none !important; }
+  html:not(.hf-computer) :where(#loading-mask:not(.hf-finta), #hf-scheletro) > .placeholder { top: 56px !important; }
+  html:not(.hf-computer) :where(#loading-mask:not(.hf-finta), #hf-scheletro) > .placeholder::before,
+  html:not(.hf-computer) :where(#loading-mask:not(.hf-finta), #hf-scheletro) > .skformula + .placeholder::before,
+  html:not(.hf-computer) :where(#loading-mask:not(.hf-finta), #hf-scheletro) > .sktoolbar:not(#sktoolbar-pdf) + .placeholder::before {
+    left: 16px; top: 16px; width: 24px; height: 24px; background: no-repeat center / 24px 24px var(--sk-indietro) !important;
+  }
+  html:not(.hf-computer) :where(#loading-mask:not(.hf-finta), #hf-scheletro) > :not(.skformula + .placeholder).placeholder::after,
+  html:not(.hf-computer) :where(#loading-mask:not(.hf-finta), #hf-scheletro) > .skformula::after {
+    top: 16px; right: 16px; width: 120px; height: 24px; left: auto; bottom: auto; border: 0;
+    background:
+      no-repeat right 0 top 0 / 24px 24px var(--sk-altro),
+      no-repeat right 48px top 0 / 24px 24px var(--sk-persona),
+      no-repeat right 96px top 0 / 24px 24px var(--sk-commenti) !important;
+  }
+  /* Documenti: il foglio adattato alla larghezza, da x 24 a W-38, da y 75. */
+  html:not(.hf-computer) #sktoolbar-pdf + .placeholder,
+  html:not(.hf-computer) #sktoolbar-pdf + .placeholder[style*="margin-top"] {
+    margin-top: 0 !important;
+    background:
+      no-repeat 25px 20px / calc(100% - 64px) 3000px linear-gradient(#fff, #fff),
+      no-repeat 24px 19px / calc(100% - 62px) 3000px linear-gradient(#c4c7c5, #c4c7c5) !important;
+  }
+  /* Fogli: la barra della formula da y 56, alta 40; la griglia da 96. */
+  html:not(.hf-computer) :where(#loading-mask:not(.hf-finta), #hf-scheletro) > .skformula {
+    top: 56px !important; height: 40px !important; border-top: 0 !important;
+    background: linear-gradient(#fff, #fff) !important;
+  }
+  html:not(.hf-computer) :where(#loading-mask:not(.hf-finta), #hf-scheletro) > .skformula + .placeholder { top: 96px !important; }
+  /* Presentazioni: niente miniature; la diapositiva 16:9 a tutta larghezza, in mezzo. */
+  html:not(.hf-computer) :where(#loading-mask:not(.hf-finta), #hf-scheletro) > .sktoolbar:not(#sktoolbar-pdf) + .placeholder { background: none !important; }
+  html:not(.hf-computer) :where(#loading-mask:not(.hf-finta), #hf-scheletro) > .sktoolbar:not(#sktoolbar-pdf) + .placeholder > .slide-h { left: 19px !important; right: 36px !important; bottom: 22px !important; }
+  html:not(.hf-computer) :where(#loading-mask:not(.hf-finta), #hf-scheletro) > .sktoolbar:not(#sktoolbar-pdf) + .placeholder > .slide-h > .slide-v {
+    height: auto !important; width: 100% !important; aspect-ratio: 16 / 9;
+  }
+}
+
 /* Quando la pelle è costruita lo scheletro copre solo il foglio, fino al documento disegnato. */
 body.hf-pronta #hf-scheletro { background: transparent !important; pointer-events: none !important; z-index: 900 !important; }
 body.hf-pronta #hf-scheletro > :is(.brendpanel, .sktoolbar) { display: none !important; }
@@ -493,6 +546,44 @@ body.hf-pronta #hf-scheletro > .placeholder::before,
 body.hf-pronta #hf-scheletro > .skformula::after,
 body.hf-pronta #hf-scheletro > :not(.skformula + .placeholder).placeholder::after { display: none !important; }
 #hf-scheletro.hf-via { opacity: 0 !important; }
+
+/* ---------------------------------------------------------------- le attese lunghe (1.36.0) */
+/* ONLYOFFICE non si scopre mai (pelle.js, `attesa` e `guasto`): se il documento tarda, al
+   centro dello scheletro una pillola bianca dice «Apro il documento…», poi offre «Riprova».
+   Resta cliccabile anche quando lo scheletro, a pelle pronta, non prende più i clic. */
+:where(#loading-mask:not(.hf-finta), #hf-scheletro) > .hf-sk-avviso { display: none !important; }
+body:is(.hf-lento, .hf-fermo, .hf-guasto) #hf-scheletro > .hf-sk-avviso:not(:empty) {
+  display: flex !important; position: fixed !important; left: 50% !important; top: 50% !important;
+  transform: translate(-50%, -50%); align-items: center; gap: 12px; box-sizing: border-box;
+  width: max-content !important; max-width: calc(100vw - 32px) !important; height: auto !important;
+  padding: 10px 10px 10px 20px !important; background: #fff !important; border-radius: 28px !important;
+  box-shadow: 0 1px 2px 0 rgba(60, 64, 67, .3), 0 2px 6px 2px rgba(60, 64, 67, .15) !important;
+  font: 400 14px/20px "Google Sans", Roboto, "Segoe UI", "Helvetica Neue", Arial, sans-serif; color: #1f1f1f;
+  pointer-events: auto !important; z-index: 3;
+}
+body.hf-lento:not(.hf-fermo) #hf-scheletro > .hf-sk-avviso { padding-right: 20px !important; }
+#hf-scheletro > .hf-sk-avviso > span { display: inline-block !important; }
+#hf-scheletro > .hf-sk-avviso > button {
+  display: inline-flex !important; align-items: center; flex: none; height: 36px; padding: 0 18px; margin: 0;
+  border: 0; border-radius: 18px; background: #0b57d0; color: #fff; cursor: pointer;
+  font: 500 14px/20px "Google Sans", Roboto, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+#hf-scheletro > .hf-sk-avviso > button:hover { background: #0a4fbd; }
+#hf-scheletro > .hf-sk-avviso > .hf-sk-gira {
+  width: 18px; height: 18px; flex: none; box-sizing: border-box; border-radius: 50%;
+  border: 2px solid #d3e3fd; border-top-color: #0b57d0; animation: hf-gira .8s linear infinite;
+}
+/* Fra la pelle pronta e il documento disegnato la colonna dei pannelli a destra di ONLYOFFICE
+   (che si chiude col documento, `chiudiPannelloDestro`) nei fogli spuntava sopra lo scheletro,
+   fra la barra della formula e la griglia (prova della pelle, 17/11/2026). */
+body:not(.hf-documento) #right-menu { visibility: hidden !important; }
+/* Il guasto: lo scheletro resta sopra tutto, anche se la pelle era a metà. */
+body.hf-guasto #hf-scheletro { z-index: 2147483000 !important; pointer-events: auto !important; }
+
+/* Una finestra di ONLYOFFICE mentre si apre (password, opzioni del CSV, un errore): sopra lo
+   scheletro, col suo velo, e coi colori dei dialoghi della pelle (pelle.js, `guardaFinestre`). */
+body.hf-finestra .modals-mask { z-index: 2147483100 !important; }
+body.hf-finestra .asc-window { z-index: 2147483200 !important; }
 
 /* ---------------------------------------------------------------- le attese di ONLYOFFICE */
 /* «Caricamento…», «Salvataggio…»: non il riquadro nero al centro, ma un avviso scuro e
@@ -636,61 +727,61 @@ body.hf-pelle .palette-color-caption { font: 500 12px/16px var(--hf-font) !impor
 /* ---------------------------------------------------------------- i dialoghi di ONLYOFFICE */
 /* Tabella, paragrafo, immagine, impostazioni pagina, conteggio parole, link: bianchi,
    raggio 8, titolo grande a sinistra, bottoni a pillola (il principale blu pieno). */
-body.hf-pelle .asc-window {
+body:is(.hf-pelle, .hf-avvio) .asc-window {
   background: #fff !important; border: 0 !important; border-radius: 8px !important;
   box-shadow: 0 4px 8px 3px rgba(60, 64, 67, .15), 0 1px 3px rgba(60, 64, 67, .3) !important;
   font-family: var(--hf-font) !important; color: var(--hf-testo) !important;
 }
 /* La testata resta alta 34 (il corpo comincia lì, in ONLYOFFICE è posizionato a mano). */
-body.hf-pelle .asc-window > .header {
+body:is(.hf-pelle, .hf-avvio) .asc-window > .header {
   background: #fff !important; border: 0 !important; border-radius: 8px 8px 0 0 !important;
   padding: 10px 48px 0 24px !important; text-align: left !important; line-height: 24px !important;
 }
-body.hf-pelle .asc-window > .header .title {
+body:is(.hf-pelle, .hf-avvio) .asc-window > .header .title {
   font: 400 18px/24px var(--hf-font) !important; color: var(--hf-testo) !important; text-align: left !important;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-body.hf-pelle .asc-window > .header .tools { top: 6px !important; right: 8px !important; }
-body.hf-pelle .asc-window > .header .tool.close {
+body:is(.hf-pelle, .hf-avvio) .asc-window > .header .tools { top: 6px !important; right: 8px !important; }
+body:is(.hf-pelle, .hf-avvio) .asc-window > .header .tool.close {
   width: 32px !important; height: 32px !important; border-radius: 50% !important; opacity: .8;
 }
-body.hf-pelle .asc-window > .header .tool.close:hover { background-color: var(--hf-passa) !important; }
-body.hf-pelle .asc-window .body { background: #fff !important; }
-body.hf-pelle .asc-window .footer {
+body:is(.hf-pelle, .hf-avvio) .asc-window > .header .tool.close:hover { background-color: var(--hf-passa) !important; }
+body:is(.hf-pelle, .hf-avvio) .asc-window .body { background: #fff !important; }
+body:is(.hf-pelle, .hf-avvio) .asc-window .footer {
   background: #fff !important; border: 0 !important; padding: 12px 24px 20px !important;
   text-align: right !important; border-radius: 0 0 8px 8px !important;
 }
-body.hf-pelle .asc-window .footer .dlg-btn, body.hf-pelle .asc-window .btn.normal.dlg-btn {
+body:is(.hf-pelle, .hf-avvio) .asc-window .footer .dlg-btn, body:is(.hf-pelle, .hf-avvio) .asc-window .btn.normal.dlg-btn {
   height: 36px !important; min-width: 72px !important; padding: 0 24px !important; border-radius: 18px !important;
   font: 500 14px/20px var(--hf-font) !important; letter-spacing: .1px; border: 1px solid #747775 !important;
   background: #fff !important; color: var(--hf-blu) !important; margin-left: 8px !important; box-shadow: none !important;
 }
-body.hf-pelle .asc-window .footer .dlg-btn:hover { background: rgba(11, 87, 208, .08) !important; }
-body.hf-pelle .asc-window .footer .dlg-btn.primary {
+body:is(.hf-pelle, .hf-avvio) .asc-window .footer .dlg-btn:hover { background: rgba(11, 87, 208, .08) !important; }
+body:is(.hf-pelle, .hf-avvio) .asc-window .footer .dlg-btn.primary {
   background: var(--hf-blu) !important; color: #fff !important; border-color: var(--hf-blu) !important;
 }
-body.hf-pelle .asc-window .footer .dlg-btn.primary:hover { background: #0a4fbd !important; box-shadow: 0 1px 2px rgba(0,0,0,.3), 0 1px 3px 1px rgba(0,0,0,.15) !important; }
-body.hf-pelle .asc-window label, body.hf-pelle .asc-window .input-label, body.hf-pelle .asc-window td,
-body.hf-pelle .asc-window .font-size-normal { font-family: var(--hf-font) !important; }
-body.hf-pelle .asc-window .form-control, body.hf-pelle .asc-window input.form-control,
-body.hf-pelle .asc-window textarea.form-control {
+body:is(.hf-pelle, .hf-avvio) .asc-window .footer .dlg-btn.primary:hover { background: #0a4fbd !important; box-shadow: 0 1px 2px rgba(0,0,0,.3), 0 1px 3px 1px rgba(0,0,0,.15) !important; }
+body:is(.hf-pelle, .hf-avvio) .asc-window label, body:is(.hf-pelle, .hf-avvio) .asc-window .input-label, body:is(.hf-pelle, .hf-avvio) .asc-window td,
+body:is(.hf-pelle, .hf-avvio) .asc-window .font-size-normal { font-family: var(--hf-font) !important; }
+body:is(.hf-pelle, .hf-avvio) .asc-window .form-control, body:is(.hf-pelle, .hf-avvio) .asc-window input.form-control,
+body:is(.hf-pelle, .hf-avvio) .asc-window textarea.form-control {
   border: 1px solid #747775 !important; border-radius: 4px !important; background: #fff !important;
   font-family: var(--hf-font) !important; color: var(--hf-testo) !important; box-shadow: none !important;
 }
-body.hf-pelle .asc-window .form-control:focus { border-color: var(--hf-blu) !important; box-shadow: inset 0 0 0 1px var(--hf-blu) !important; }
-body.hf-pelle .asc-window .btn-group > .form-control + .btn, body.hf-pelle .asc-window .input-group-btn .btn { border-color: #747775 !important; }
-body.hf-pelle .asc-window .nav-tabs, body.hf-pelle .asc-window .tabs { border-color: #e1e3e1 !important; }
-body.hf-pelle .asc-window .listview, body.hf-pelle .asc-window .treeview { border-color: #c4c7c5 !important; border-radius: 4px !important; }
-body.hf-pelle .modals-mask { background: rgba(32, 33, 36, .4) !important; opacity: 1 !important; }
+body:is(.hf-pelle, .hf-avvio) .asc-window .form-control:focus { border-color: var(--hf-blu) !important; box-shadow: inset 0 0 0 1px var(--hf-blu) !important; }
+body:is(.hf-pelle, .hf-avvio) .asc-window .btn-group > .form-control + .btn, body:is(.hf-pelle, .hf-avvio) .asc-window .input-group-btn .btn { border-color: #747775 !important; }
+body:is(.hf-pelle, .hf-avvio) .asc-window .nav-tabs, body:is(.hf-pelle, .hf-avvio) .asc-window .tabs { border-color: #e1e3e1 !important; }
+body:is(.hf-pelle, .hf-avvio) .asc-window .listview, body:is(.hf-pelle, .hf-avvio) .asc-window .treeview { border-color: #c4c7c5 !important; border-radius: 4px !important; }
+body:is(.hf-pelle, .hf-avvio) .modals-mask { background: rgba(32, 33, 36, .4) !important; opacity: 1 !important; }
 /* Le finestre senza titolo (avvisi, conferme): lo stesso bianco, il testo grande. */
-body.hf-pelle .asc-window.alert .body .info-box .text, body.hf-pelle .asc-window.alert .body p {
+body:is(.hf-pelle, .hf-avvio) .asc-window.alert .body .info-box .text, body:is(.hf-pelle, .hf-avvio) .asc-window.alert .body p {
   font: 400 14px/20px var(--hf-font) !important; color: #444746 !important;
 }
 
 /* ---------------------------------------------------------------- trova e sostituisci */
 /* La barra «Trova» (Ctrl+F) come la casella degli editor web: in alto a destra, bianca,
    arrotondata. */
-body.hf-pelle .search-bar, body.hf-pelle .asc-window.search-bar {
+body.hf-pelle .search-bar, body:is(.hf-pelle, .hf-avvio) .asc-window.search-bar {
   border-radius: 8px !important; box-shadow: 0 4px 8px 3px rgba(60, 64, 67, .15), 0 1px 3px rgba(60, 64, 67, .3) !important;
   background: #fff !important; border: 0 !important;
 }
