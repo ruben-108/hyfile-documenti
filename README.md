@@ -42,6 +42,7 @@ accetta solo i messaggi della finestra che la contiene.
 | pelle | `{hyfile: 'pelle', tipo: 'pronta'}` | La testata vera è disegnata. |
 | pelle | `{hyfile: 'pelle', tipo: 'posto', x, y, larghezza, altezza}` | Il rettangolo vuoto in alto a destra, in px della finestra dell'editor. Arriva a ogni cambio di misura. Con i menu nascosti è tutto a zero. |
 | pelle | `{hyfile: 'pelle', tipo: 'copia-link'}` | «Copia link» dalla freccina di Condividi: il link lo copia la pagina. |
+| pelle | `{hyfile: 'pelle', tipo: 'salva-copia', formato}` | File › «Salva una copia in HyFile» (`pdf`, `docx`, `csv`…): la pagina chiede dove e poi la conversione (`downloadAs`). La voce c'è solo se la pagina ha l'evento `onRequestSaveAs`. |
 | pagina | `{hyfile: 'pagina', tipo: 'posto', larghezza}` | Quanto spazio serve alla pagina (di serie 124). |
 | pagina | `{hyfile: 'pagina', tipo: 'chiedi-posto'}` | La pelle rimanda il rettangolo. |
 | pagina | `{hyfile: 'pagina', tipo: 'luogo', testo}` | Dove si salva: «Salvato sul LaCie» invece di «Salvato in HyFile». |

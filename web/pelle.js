@@ -343,6 +343,7 @@
     ripeti: 'M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.9 16a8.002 8.002 0 0 1 7.6-5.5c1.95 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z',
     stampa: 'M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z',
     scarica: 'M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z',
+    copiaInHyfile: 'M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6 12v-3h-4v-4h4V8l5 5-5 5z',
     info: 'M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z',
     nuovo: 'M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11zm-7-7H8v2h3v3h2v-3h3v-2h-3v-3h-2v3z',
     cartella: 'M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z',
@@ -1511,8 +1512,47 @@
   function giraCasella(ch) { ch.setValue(!spuntata(ch)); }
   function voceSi(v) { return function () { return G.modifica && (v === undefined || !!vale(v)); }; }
   function lm() { return c('LeftMenu'); }
+  // Il menu che ONLYOFFICE chiude dopo «Scarica come» (1.56.0): senza, nei documenti scaricava
+  // il file com'era (`_saveAsFormat` senza menu = `asc_DownloadOrigin`, il .docx al posto del
+  // PDF) e nei fogli e nelle presentazioni `menu.hide()` cadeva (nei fogli prima del PDF).
+  var MENU_FINTO = { hide: function () {} };
   function scarica(formato) {
-    return function () { lm().clickSaveAsFormat(undefined, Asc.c_oAscFileType[formato]); };
+    return function () { lm().clickSaveAsFormat(MENU_FINTO, Asc.c_oAscFileType[formato]); };
+  }
+  // I formati di File › Scarica, per tipo, e gli stessi di «Salva una copia in HyFile» (1.56.0,
+  // SPEC §19.12): la lista del server è `editor_copia.FORMATI`. Le etichette cominciano come
+  // quelle che `verifica` salta: scaricare o salvare a secco vorrebbe dire farlo davvero.
+  var SCARICA = {
+    word: [
+      ['Documento di Word (.docx)', 'DOCX'], ['Documento OpenDocument (.odt)', 'ODT'],
+      ['Documento PDF (.pdf)', 'PDF'], ['Formato RTF (.rtf)', 'RTF'], ['Testo normale (.txt)', 'TXT'],
+      ['Pagina web (.html)', 'HTML'], ['Libro EPUB (.epub)', 'EPUB'],
+    ],
+    cell: [
+      ['Microsoft Excel (.xlsx)', 'XLSX'], ['Foglio OpenDocument (.ods)', 'ODS'],
+      ['Documento PDF (.pdf)', 'PDF'], ['Valori separati da virgola (.csv)', 'CSV'],
+    ],
+    slide: [
+      ['Microsoft PowerPoint (.pptx)', 'PPTX'], ['Presentazione OpenDocument (.odp)', 'ODP'],
+      ['Documento PDF (.pdf)', 'PDF'], ['Immagine PNG (.png)', 'PNG'], ['Immagine JPEG (.jpg)', 'JPG'],
+    ],
+  };
+  function vociScarica(tipo) {
+    return (SCARICA[tipo] || []).map(function (s) { return { t: s[0], f: scarica(s[1]) }; });
+  }
+  /** «Salva una copia in HyFile»: la pelle non converte niente, dice a HyFile il formato. La
+   *  pagina apre la finestra «Scegli» sulla cartella del documento, e solo dopo la scelta
+   *  chiede la conversione a ONLYOFFICE (`downloadAs`, il link arriva in `onDownloadAs`). */
+  function salvaCopia(formato) {
+    return function () { manda({ tipo: 'salva-copia', formato: String(formato).toLowerCase() }); };
+  }
+  /** Il PDF in cima: è quello che si cerca quasi sempre. */
+  function formatiDellaCopia(tipo) {
+    var l = (SCARICA[tipo] || []).slice();
+    return l.filter(function (s) { return s[1] === 'PDF'; }).concat(l.filter(function (s) { return s[1] !== 'PDF'; }));
+  }
+  function vociCopia(tipo) {
+    return formatiDellaCopia(tipo).map(function (s) { return { t: s[0], f: salvaCopia(s[1]) }; });
   }
   function zoomVoci() {
     var z = [50, 75, 90, 100, 125, 150, 200];
@@ -1549,6 +1589,9 @@
       '-',
       { t: 'Condividi', ico: 'condividi', se: function () { return !!o.canRequestSharingSettings; }, f: function () { Common.Gateway.requestSharingSettings(); } },
       { t: 'Scarica', ico: 'scarica', se: function () { return o.canDownload !== false; }, sub: extra.scarica },
+      // HyFile dice che la copia si può salvare mettendo `onRequestSaveAs` fra gli eventi
+      // (`canRequestSaveAs`): non c'è per l'ospite di un link, né da Importazione.
+      { t: 'Salva una copia in HyFile', ico: 'copiaInHyfile', se: function () { return !!o.canRequestSaveAs && o.canDownload !== false; }, sub: extra.copia },
       '-',
       { t: 'Rinomina', ico: 'matita2', se: function () { return !!o.canRename && G.modifica; }, f: function () { var t = document.getElementById('hf-titolo'); setTimeout(function () { t && t.focus(); }, 50); } },
       '-',
@@ -1614,15 +1657,8 @@
     function menu() {
       return [
         { t: 'File', voci: vociFile({
-          scarica: [
-            { t: 'Documento di Word (.docx)', f: scarica('DOCX') },
-            { t: 'Documento OpenDocument (.odt)', f: scarica('ODT') },
-            { t: 'Documento PDF (.pdf)', f: scarica('PDF') },
-            { t: 'Formato RTF (.rtf)', f: scarica('RTF') },
-            { t: 'Testo normale (.txt)', f: scarica('TXT') },
-            { t: 'Pagina web (.html)', f: scarica('HTML') },
-            { t: 'Libro EPUB (.epub)', f: scarica('EPUB') },
-          ],
+          scarica: vociScarica('word'),
+          copia: vociCopia('word'),
           dopo: [
             { t: 'Impostazione pagina', ico: 'pagina', sub: [
               { t: 'Orientamento', sub: [
@@ -1847,12 +1883,8 @@
     function menu() {
       return [
         { t: 'File', voci: vociFile({
-          scarica: [
-            { t: 'Microsoft Excel (.xlsx)', f: scarica('XLSX') },
-            { t: 'Foglio OpenDocument (.ods)', f: scarica('ODS') },
-            { t: 'Documento PDF (.pdf)', f: scarica('PDF') },
-            { t: 'Valori separati da virgola (.csv)', f: scarica('CSV') },
-          ],
+          scarica: vociScarica('cell'),
+          copia: vociCopia('cell'),
           dopo: [
             { t: 'Impostazione pagina', ico: 'pagina', se: voceSi(), sub: [
               { t: 'Orientamento', oo: function () { return tb().btnPageOrient; } },
@@ -2026,13 +2058,8 @@
     function menu() {
       return [
         { t: 'File', voci: vociFile({
-          scarica: [
-            { t: 'Microsoft PowerPoint (.pptx)', f: scarica('PPTX') },
-            { t: 'Presentazione OpenDocument (.odp)', f: scarica('ODP') },
-            { t: 'Documento PDF (.pdf)', f: scarica('PDF') },
-            { t: 'Immagine PNG (.png)', f: scarica('PNG') },
-            { t: 'Immagine JPEG (.jpg)', f: scarica('JPG') },
-          ],
+          scarica: vociScarica('slide'),
+          copia: vociCopia('slide'),
           dopo: [
             { t: 'Dimensioni della diapositiva', ico: 'pagina', se: voceSi(), oo: function () { return tb().btnSlideSize; } },
           ],
@@ -2220,7 +2247,8 @@
       premi: premi, scegli: scegli, voceDi: voceDi, apriMenuDi: apriMenuDi, chiudiMenuOO: chiudiMenuOO,
       manda: manda, mettiStato: mettiStato, statoDiSerie: statoDiSerie, altezza: altezza,
       aggiungiCommento: aggiungiCommento, apriCommenti: apriCommenti, segnaCommenti: segnaCommenti,
-      scarica: scarica, conteggioParole: conteggioParole, legale: legale, lm: lm, zoomA: zoomA,
+      scarica: scarica, salvaCopia: salvaCopia, formatiDellaCopia: formatiDellaCopia,
+      conteggioParole: conteggioParole, legale: legale, lm: lm, zoomA: zoomA,
       rimettiFuoco: rimettiFuoco, senzaBarraDiStato: senzaBarraDiStato, senzaEstensione: senzaEstensione,
       logo: logo, spuntata: spuntata, giraCasella: giraCasella, riprova: riprova, diario: diario,
       apriStoria: apriStoria,

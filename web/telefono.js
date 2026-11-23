@@ -672,6 +672,15 @@
           });
         });
       } });
+      // «Salva una copia in HyFile» (1.56.0, SPEC §19.12): tutti i formati del computer, il
+      // PDF in cima. La finestra per scegliere dove la apre HyFile, sopra l'editor.
+      riga(box, { t: 'Salva una copia in HyFile', ico: 'copiaInHyfile', sub: true, se: !!o.canRequestSaveAs && o.canDownload !== false, f: function () {
+        pagina('Salva una copia in HyFile', function (b) {
+          I.formatiDellaCopia(G.TIPO).forEach(function (s) {
+            riga(b, { t: s[0], f: function () { chiudiFoglio(true); I.salvaCopia(s[1])(); } });
+          });
+        });
+      } });
       riga(box, { t: 'Rinomina', ico: 'matita2', se: puoRinominare(), f: rinomina });
       if (G.TIPO === 'word') riga(box, { t: 'Conteggio parole', ico: 'testo', f: function () { chiudiFoglio(true); I.conteggioParole(); } });
       box.appendChild(el('div', { class: 'hf-tel-linea' }));
